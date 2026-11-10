@@ -104,6 +104,10 @@ button.small { padding: 4px 10px; font-size: 12px; }
 .lang-switch button:hover { color: inherit; background: var(--panel); }
 .lang-switch button.active { background: var(--accent-soft); color: var(--accent); }
 .logo { color: var(--accent); }
+.brand-name { display: inline-flex; align-items: center; gap: 8px; }
+.logo-img { width: 26px; height: 26px; flex-shrink: 0; }
+.brand.big .logo-img { width: 44px; height: 44px; }
+.brand.big { display: inline-flex; align-items: center; gap: 12px; }
 .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 14px 8px 6px; }
 .bot-item, .nav-item {
   display: flex;

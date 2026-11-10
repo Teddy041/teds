@@ -1,6 +1,8 @@
 <div align="center">
 
-# ◆ Teds
+<img src="docs/logo.png" alt="Teds logo" width="160" />
+
+# Teds
 
 [English](README.md) | [Deutsch](README.de.md) | [Türkçe](README.tr.md) | **简体中文** | [日本語](README.ja.md)
 

@@ -23,6 +23,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: "Teds",
+    icon: path.join(__dirname, "../../resources/icon.ico"),
     autoHideMenuBar: true,
     backgroundColor: "#0f1115",
     webPreferences: {
@@ -32,6 +33,16 @@ function createWindow() {
       sandbox: false,
     },
   });
+  if (process.platform === "win32" && !app.isPackaged) {
+    // Windows only uses the icon below when a relaunch command is set too.
+    main.setAppDetails({
+      appId: APP_ID,
+      appIconPath: path.join(__dirname, "../../resources/icon.ico"),
+      appIconIndex: 0,
+      relaunchCommand: `"${process.execPath}" "${app.getAppPath()}"`,
+      relaunchDisplayName: "Teds",
+    });
+  }
   main.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/i.test(url)) void shell.openExternal(url);
     return { action: "deny" };
@@ -249,7 +260,10 @@ if (process.env.TEDS_DEBUG === "1") {
 
 export type Api = typeof api;
 
-app.setAppUserModelId("com.teds.app");
+// The installed app's ID matches its Start menu shortcut. When started from source (Teds.cmd)
+// the process is electron.exe, so it gets its own ID and the window tells the taskbar which icon to use.
+const APP_ID = app.isPackaged ? "com.teds.app" : "com.teds.app.source";
+app.setAppUserModelId(APP_ID);
 
 // A separate data folder for tests (so real data is never touched).
 if (process.env.TEDS_DATA_DIR) app.setPath("userData", process.env.TEDS_DATA_DIR);

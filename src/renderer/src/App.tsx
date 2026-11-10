@@ -6,6 +6,7 @@ import { ApprovalsView, BotEditor, LangSwitch, MemoryView, Onboarding, OwnerGate
 import { ProfileBox } from "./Profile";
 import { BotFolders } from "./BotFolders";
 import { setLang, t } from "../../shared/i18n";
+import logo from "./assets/logo.png";
 import type { Bot } from "../../shared/types";
 
 type Page = "chat" | "records" | "memory" | "tasks" | "approvals" | "settings" | "login";
@@ -45,8 +46,8 @@ export function App() {
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-row">
-            <span>
-              <span className="logo">◆</span> Teds
+            <span className="brand-name">
+              <img className="logo-img" src={logo} alt="" /> Teds
             </span>
             <LangSwitch lang={s.settings.language} />
           </div>

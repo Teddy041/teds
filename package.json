@@ -45,12 +45,14 @@
     },
     "files": [
       "out/**",
+      "resources/**",
       "package.json"
     ],
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,

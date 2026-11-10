@@ -4,6 +4,7 @@ import { templates } from "../../shared/templates";
 import { LANGS, locale, t, type Lang } from "../../shared/i18n";
 import { call, timeAgo, uid } from "./api";
 import { ApprovalCard } from "./Chat";
+import logo from "./assets/logo.png";
 
 // ---------- Language switch ----------
 
@@ -127,7 +128,7 @@ export function Onboarding({ s }: { s: PublicState }) {
       <div className="card wide">
         <div className="row">
           <div className="brand big">
-            <span className="logo">◆</span> Teds
+            <img className="logo-img" src={logo} alt="" /> Teds
           </div>
           <span className="spacer" />
           <LangSwitch lang={s.settings.language} />
