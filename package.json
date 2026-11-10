@@ -1,0 +1,60 @@
+{
+  "name": "teds",
+  "version": "0.1.0",
+  "description": "An editable AI bot team for any kind of management work (Windows, Claude API)",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc -p .",
+    "dist": "electron-vite build && electron-builder --win"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "claude",
+    "electron",
+    "bot-team",
+    "management"
+  ],
+  "author": "Teds contributors",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0",
+    "electron-vite": "^6.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.6"
+  },
+  "productName": "Teds",
+  "build": {
+    "appId": "com.teds.app",
+    "productName": "Teds",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
