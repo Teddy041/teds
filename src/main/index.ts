@@ -265,6 +265,27 @@ export type Api = typeof api;
 const APP_ID = app.isPackaged ? "com.teds.app" : "com.teds.app.source";
 app.setAppUserModelId(APP_ID);
 
+// Windows only shows an app's notifications (with its name and logo) when a Start menu shortcut
+// carries the app's ID. The installer creates one; Teds.exe built by Teds.cmd (dist\win-unpacked)
+// has none, so it adds its own. An existing shortcut that points somewhere else is left alone.
+function ensureStartMenuShortcut() {
+  if (process.platform !== "win32" || !app.isPackaged || !/[\\/]win-unpacked[\\/]/i.test(process.execPath)) return;
+  try {
+    const lnk = path.join(app.getPath("appData"), "Microsoft", "Windows", "Start Menu", "Programs", "Teds.lnk");
+    if (fs.existsSync(lnk) && path.resolve(shell.readShortcutLink(lnk).target).toLowerCase() !== process.execPath.toLowerCase()) return;
+    shell.writeShortcutLink(lnk, fs.existsSync(lnk) ? "replace" : "create", {
+      target: process.execPath,
+      cwd: path.dirname(process.execPath),
+      description: "Teds",
+      icon: process.execPath,
+      iconIndex: 0,
+      appUserModelId: APP_ID,
+    });
+  } catch {
+    // Not critical: the app works, only its notifications may not show.
+  }
+}
+
 // A separate data folder for tests (so real data is never touched).
 if (process.env.TEDS_DATA_DIR) app.setPath("userData", process.env.TEDS_DATA_DIR);
 
@@ -280,6 +301,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 app.whenReady().then(() => {
+  ensureStartMenuShortcut();
   loadState();
   setLang(state.settings.language);
   // Owner actions: if an owner PIN is set, they only work while unlocked.

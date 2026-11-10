@@ -1,4 +1,5 @@
 import { Notification } from "electron";
+import path from "node:path";
 import { botById, changed, chatFor, newId, state } from "./store";
 import { t } from "../shared/i18n";
 
@@ -20,7 +21,7 @@ export function requestApproval(o: { botId: string; title: string; detail: strin
   changed();
   const bot = botById(o.botId);
   if (Notification.isSupported()) {
-    new Notification({ title: t("{name} is waiting for approval", { name: bot?.name ?? "Bot" }), body: o.title }).show();
+    new Notification({ title: t("{name} is waiting for approval", { name: bot?.name ?? "Bot" }), body: o.title, icon: path.join(__dirname, "../../resources/icon.png") }).show();
   }
   return new Promise((resolve) => waiting.set(id, resolve));
 }

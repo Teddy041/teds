@@ -8,7 +8,8 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc -p .",
-    "dist": "electron-vite build && electron-builder --win"
+    "dist": "electron-vite build && electron-builder --win",
+    "app": "electron-vite build && electron-builder --win --dir"
   },
   "keywords": [
     "ai",
