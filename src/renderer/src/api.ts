@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { PublicState } from "../../shared/types";
 import { locale } from "../../shared/i18n";
 
-// Ana süreçle konuşan ince katman. Tüm işlemler window.teds.call ile yapılır.
+// A thin layer that talks to the main process. Every action goes through window.teds.call.
 
 export interface Frame {
   botId: string;

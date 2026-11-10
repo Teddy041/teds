@@ -3,14 +3,14 @@ import type { Collection, FieldDef, PublicState, RecordRow } from "../../shared/
 import { locale, t } from "../../shared/i18n";
 import { call } from "./api";
 
-// Kayıtlar: kullanıcının kendi tanımladığı tablolar (alanları düzenlenebilir) ve içlerindeki kayıtlar.
+// Records: tables the user defines (with editable fields) and the records in them.
 
 const TYPES: { id: FieldDef["type"]; label: string }[] = [
-  { id: "text", label: "Metin" },
-  { id: "longtext", label: "Uzun metin" },
-  { id: "number", label: "Sayı" },
-  { id: "date", label: "Tarih" },
-  { id: "select", label: "Seçenek" },
+  { id: "text", label: "Text" },
+  { id: "longtext", label: "Long text" },
+  { id: "number", label: "Number" },
+  { id: "date", label: "Date" },
+  { id: "select", label: "Choice" },
 ];
 
 function slug(label: string) {
@@ -20,15 +20,15 @@ function slug(label: string) {
       .toLocaleLowerCase("tr")
       .replace(/[çğıöşü]/g, (c) => map[c])
       .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_|_$/g, "") || "alan"
+      .replace(/^_|_$/g, "") || "field"
   );
 }
 
 function CollectionEditor({ c, onClose }: { c: Collection | null; onClose: () => void }) {
-  const [draft, setDraft] = useState<Collection>(c ? structuredClone(c) : { id: "", name: "", description: "", fields: [{ key: "ad", label: t("Ad"), type: "text" }] });
+  const [draft, setDraft] = useState<Collection>(c ? structuredClone(c) : { id: "", name: "", description: "", fields: [{ key: "ad", label: t("Name"), type: "text" }] });
   const setField = (i: number, p: Partial<FieldDef>) => setDraft({ ...draft, fields: draft.fields.map((f, j) => (j === i ? { ...f, ...p } : f)) });
   const save = () => {
-    if (!draft.name.trim()) return alert(t("Tablo adı gerekli."));
+    if (!draft.name.trim()) return alert(t("Table name is required."));
     const keys = new Set<string>();
     const fields = draft.fields
       .filter((f) => f.label.trim())
@@ -44,19 +44,19 @@ function CollectionEditor({ c, onClose }: { c: Collection | null; onClose: () =>
   return (
     <div className="modal-back" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>{c ? t("Tabloyu düzenle") : t("Yeni tablo")}</h2>
+        <h2>{c ? t("Edit table") : t("New table")}</h2>
         <label>
-          {t("Tablo adı")}
-          <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder={t("örn. Hastalar, Siparişler, Araçlar")} />
+          {t("Table name")}
+          <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder={t("e.g. Patients, Orders, Vehicles")} />
         </label>
         <label>
-          {t("Açıklama (botlar bunu okur)")}
-          <input value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} placeholder={t("Bu tablo ne için kullanılıyor?")} />
+          {t("Description (bots read this)")}
+          <input value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} placeholder={t("What is this table for?")} />
         </label>
-        <div className="section-title">{t("Alanlar")}</div>
+        <div className="section-title">{t("Fields")}</div>
         {draft.fields.map((f, i) => (
           <div className="field-row" key={i}>
-            <input value={f.label} placeholder={t("Alan adı")} onChange={(e) => setField(i, { label: e.target.value, key: c?.fields.some((x) => x.key === f.key) ? f.key : "" })} />
+            <input value={f.label} placeholder={t("Field name")} onChange={(e) => setField(i, { label: e.target.value, key: c?.fields.some((x) => x.key === f.key) ? f.key : "" })} />
             <select value={f.type} onChange={(e) => setField(i, { type: e.target.value as FieldDef["type"] })}>
               {TYPES.map((x) => (
                 <option key={x.id} value={x.id}>
@@ -66,7 +66,7 @@ function CollectionEditor({ c, onClose }: { c: Collection | null; onClose: () =>
             </select>
             {f.type === "select" && (
               <input
-                placeholder={t("Seçenekler, virgülle")}
+                placeholder={t("Choices, comma separated")}
                 value={(f.options ?? []).join(", ")}
                 onChange={(e) =>
                   setField(i, {
@@ -84,14 +84,14 @@ function CollectionEditor({ c, onClose }: { c: Collection | null; onClose: () =>
           </div>
         ))}
         <button className="ghost" onClick={() => setDraft({ ...draft, fields: [...draft.fields, { key: "", label: "", type: "text" }] })}>
-          {t("+ Alan ekle")}
+          {t("+ Add field")}
         </button>
         <div className="row end">
           <button className="ghost" onClick={onClose}>
-            {t("Vazgeç")}
+            {t("Cancel")}
           </button>
           <button className="primary" onClick={save}>
-            {t("Kaydet")}
+            {t("Save")}
           </button>
         </div>
       </div>
@@ -115,7 +115,7 @@ function RecordEditor({ c, row, onClose }: { c: Collection; row: RecordRow | nul
     <div className="modal-back" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h2>
-          {c.name}: {row ? t("kaydı düzenle") : t("yeni kayıt")}
+          {c.name}: {row ? t("edit record") : t("new record")}
         </h2>
         {c.fields.map((f) => (
           <label key={f.key}>
@@ -136,10 +136,10 @@ function RecordEditor({ c, row, onClose }: { c: Collection; row: RecordRow | nul
         ))}
         <div className="row end">
           <button className="ghost" onClick={onClose}>
-            {t("Vazgeç")}
+            {t("Cancel")}
           </button>
           <button className="primary" onClick={save}>
-            {t("Kaydet")}
+            {t("Save")}
           </button>
         </div>
       </div>
@@ -163,8 +163,8 @@ export function RecordsView({ s }: { s: PublicState }) {
   return (
     <div className="page">
       <header className="page-head">
-        <h1>{t("Kayıtlar")}</h1>
-        <span className="muted">{t("Botlar bu tablolarda arar, ekler ve günceller. Tabloları ve alanları istediğin gibi değiştirebilirsin.")}</span>
+        <h1>{t("Records")}</h1>
+        <span className="muted">{t("Bots search, add and update records in these tables. You can change the tables and fields however you like.")}</span>
       </header>
       <div className="tabs">
         {s.collections.map((c) => (
@@ -174,30 +174,30 @@ export function RecordsView({ s }: { s: PublicState }) {
         ))}
         {s.owner.unlocked && (
           <button className="tab ghost" onClick={() => setEditCol("new")}>
-            {t("+ Tablo")}
+            {t("+ Table")}
           </button>
         )}
       </div>
       {col ? (
         <>
           <div className="row">
-            <input className="grow" placeholder={t("Ara…")} value={q} onChange={(e) => setQ(e.target.value)} />
+            <input className="grow" placeholder={t("Search…")} value={q} onChange={(e) => setQ(e.target.value)} />
             <button className="primary" onClick={() => setEditRow("new")}>
-              {t("+ Kayıt")}
+              {t("+ Record")}
             </button>
             {s.owner.unlocked && (
               <button className="ghost" onClick={() => setEditCol(col)}>
-                {t("Tabloyu düzenle")}
+                {t("Edit table")}
               </button>
             )}
             {s.owner.unlocked && (
               <button
                 className="ghost danger-text"
                 onClick={() => {
-                  if (confirm(t('"{name}" tablosu ve içindeki tüm kayıtlar silinsin mi? Bu geri alınamaz.', { name: col.name }))) void call("deleteCollection", col.id);
+                  if (confirm(t("Delete the \"{name}\" table and all its records? This can't be undone.", { name: col.name }))) void call("deleteCollection", col.id);
                 }}
               >
-                {t("Tabloyu sil")}
+                {t("Delete table")}
               </button>
             )}
           </div>
@@ -220,15 +220,15 @@ export function RecordsView({ s }: { s: PublicState }) {
                     ))}
                     <td className="actions">
                       <button className="ghost small" onClick={() => setEditRow(r)}>
-                        {t("Düzenle")}
+                        {t("Edit")}
                       </button>
                       <button
                         className="ghost small"
                         onClick={() => {
-                          if (confirm(t("Bu kayıt silinsin mi?"))) void call("deleteRecord", r.id);
+                          if (confirm(t("Delete this record?"))) void call("deleteRecord", r.id);
                         }}
                       >
-                        {t("Sil")}
+                        {t("Delete")}
                       </button>
                     </td>
                   </tr>
@@ -236,7 +236,7 @@ export function RecordsView({ s }: { s: PublicState }) {
                 {!rows.length && (
                   <tr>
                     <td colSpan={col.fields.length + 1} className="muted center">
-                      {q ? t("Sonuç yok.") : t("Henüz kayıt yok. Elle ekleyebilir ya da bir bottan isteyebilirsin.")}
+                      {q ? t("No results.") : t("No records yet. Add one yourself or ask a bot.")}
                     </td>
                   </tr>
                 )}
@@ -246,10 +246,10 @@ export function RecordsView({ s }: { s: PublicState }) {
         </>
       ) : (
         <div className="empty">
-          <p>{t("Henüz tablo yok.")}</p>
+          <p>{t("No tables yet.")}</p>
           {s.owner.unlocked && (
             <button className="primary" onClick={() => setEditCol("new")}>
-              {t("İlk tabloyu oluştur")}
+              {t("Create the first table")}
             </button>
           )}
         </div>

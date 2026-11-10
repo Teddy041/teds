@@ -17,10 +17,10 @@ export function App() {
   const [editing, setEditing] = useState<Bot | "new" | null>(null);
   const [watchBot, setWatchBot] = useState<string | null>(null);
 
-  // Dil her çizimden önce ayarlanır; böylece bütün bileşenler aynı dilde yazar.
+  // The language is set before every render, so all components use the same language.
   setLang(s?.settings.language);
   useEffect(() => {
-    document.documentElement.lang = s?.settings.language === "en" ? "en" : "tr";
+    document.documentElement.lang = s?.settings.language === "tr" ? "tr" : "en";
   }, [s?.settings.language]);
 
   if (!s) return <div className="loading">…</div>;
@@ -33,11 +33,11 @@ export function App() {
   const owner = s.owner.unlocked;
 
   const nav: { id: Page; label: string; badge?: number }[] = [
-    { id: "records", label: `📁 ${t("Kayıtlar")}` },
-    { id: "memory", label: `🧠 ${t("Hafıza")}` },
-    { id: "tasks", label: `🖥️ ${t("Ekran görevleri")}`, badge: runningTasks },
-    { id: "approvals", label: `✅ ${t("Onaylar")}`, badge: pending },
-    { id: "settings", label: `⚙️ ${t("Ayarlar")}` },
+    { id: "records", label: `📁 ${t("Records")}` },
+    { id: "memory", label: `🧠 ${t("Memory")}` },
+    { id: "tasks", label: `🖥️ ${t("Screen tasks")}`, badge: runningTasks },
+    { id: "approvals", label: `✅ ${t("Approvals")}`, badge: pending },
+    { id: "settings", label: `⚙️ ${t("Settings")}` },
   ];
 
   return (
@@ -52,7 +52,7 @@ export function App() {
           </div>
           {s.settings.orgName && <div className="org">{s.settings.orgName}</div>}
         </div>
-        <div className="section-title">{t("Ekip")}</div>
+        <div className="section-title">{t("Team")}</div>
         <div className="bots">
           <BotFolders
             s={s}
@@ -67,10 +67,10 @@ export function App() {
         </div>
         {owner && (
           <button className="ghost add-bot" onClick={() => setEditing("new")}>
-            {t("+ Bot ekle")}
+            {t("+ Add bot")}
           </button>
         )}
-        <div className="section-title">{t("Yönetim")}</div>
+        <div className="section-title">{t("Manage")}</div>
         {nav
           .filter((n) => owner || n.id !== "settings")
           .map((n) => (
@@ -85,7 +85,7 @@ export function App() {
           onLogin={() => setPage("login")}
           onSettings={() => setPage("settings")}
           onLoggedOut={() => {
-            // Çıkıştan sonra çalışanların kullanabileceği bir ekrana geç.
+            // After logging out, switch to a screen staff can use.
             const firstMate = sorted.find((b) => !b.lead);
             if (firstMate) {
               setBotId(firstMate.id);
@@ -98,7 +98,7 @@ export function App() {
         {page === "chat" &&
           current &&
           (current.lead && !owner ? (
-            <OwnerGate why={t("{name} ekip lideridir; onunla sadece işletme sahibi konuşabilir.", { name: current.name })} />
+            <OwnerGate why={t("{name} is the team lead; only the business owner can talk to it.", { name: current.name })} />
           ) : (
             <ChatView key={current.id} s={s} bot={current} openScreen={watchBot === current.id} onEdit={owner ? () => setEditing(current) : undefined} />
           ))}
@@ -119,9 +119,9 @@ export function App() {
           (owner ? (
             <ChatView s={s} bot={sorted[0]} onEdit={() => setEditing(sorted[0])} />
           ) : (
-            <OwnerGate why={t("İşletme sahibi olarak giriş yap. Ekip lideri, Ayarlar ve yönetim açılır.")} />
+            <OwnerGate why={t("Log in as the business owner. This unlocks the team lead, Settings and management.")} />
           ))}
-        {page === "settings" && (owner ? <SettingsView s={s} /> : <OwnerGate why={t("Ayarlar sadece işletme sahibine açıktır.")} />)}
+        {page === "settings" && (owner ? <SettingsView s={s} /> : <OwnerGate why={t("Settings are only available to the business owner.")} />)}
       </main>
       {editing && <BotEditor s={s} bot={editing === "new" ? null : editing} onClose={() => setEditing(null)} />}
     </div>

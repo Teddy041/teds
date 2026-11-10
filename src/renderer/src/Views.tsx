@@ -5,11 +5,11 @@ import { LANGS, locale, t, type Lang } from "../../shared/i18n";
 import { call, timeAgo, uid } from "./api";
 import { ApprovalCard } from "./Chat";
 
-// ---------- Dil düğmesi ----------
+// ---------- Language switch ----------
 
-/** TR / EN geçişi. Sahip kilidi açık olmasa da çalışır. */
+/** EN / TR switch. Works even while the owner lock is closed. */
 export function LangSwitch({ lang }: { lang?: Lang }) {
-  const cur = lang === "en" ? "en" : "tr";
+  const cur = lang === "tr" ? "tr" : "en";
   return (
     <div className="lang-switch" role="group" aria-label="Language / Dil">
       {LANGS.map((l) => (
@@ -29,7 +29,7 @@ export function OwnerGate({ why }: { why: string }) {
   const submit = async () => {
     const ok = await call<boolean>("unlockOwner", pin);
     if (!ok) {
-      setErr(t("PIN yanlış."));
+      setErr(t("Wrong PIN."));
       setPin("");
     }
   };
@@ -37,13 +37,13 @@ export function OwnerGate({ why }: { why: string }) {
     <div className="onboarding">
       <div className="card gate">
         <div className="emoji huge">🔒</div>
-        <h2>{t("Sahip girişi")}</h2>
+        <h2>{t("Owner login")}</h2>
         <p className="muted">{why}</p>
         <input
           autoFocus
           type="password"
           inputMode="numeric"
-          placeholder={t("Sahip PIN'i")}
+          placeholder={t("Owner PIN")}
           value={pin}
           onChange={(e) => {
             setPin(e.target.value);
@@ -54,10 +54,10 @@ export function OwnerGate({ why }: { why: string }) {
         {err && <div className="error-text">{err}</div>}
         <div className="row end">
           <button className="primary" disabled={!pin} onClick={() => void submit()}>
-            {t("Kilidi aç")}
+            {t("Unlock")}
           </button>
         </div>
-        <p className="tiny muted">{t("30 dakika işlem yapılmazsa yeniden kilitlenir.")}</p>
+        <p className="tiny muted">{t("Locks again after 30 minutes of inactivity.")}</p>
       </div>
     </div>
   );
@@ -69,7 +69,7 @@ function PinCard({ s }: { s: PublicState }) {
   const [msg, setMsg] = useState("");
   const save = async (next: string) => {
     const r = await call<{ ok: boolean; error?: string }>("setOwnerPin", next, cur);
-    setMsg(r.ok ? (next ? t("PIN kaydedildi.") : t("PIN kaldırıldı; kilit kapalı.")) : (r.error ?? t("Hata")));
+    setMsg(r.ok ? (next ? t("PIN saved.") : t("PIN removed; lock is off.")) : (r.error ?? t("Error")));
     if (r.ok) {
       setCur("");
       setPin("");
@@ -77,30 +77,30 @@ function PinCard({ s }: { s: PublicState }) {
   };
   return (
     <div className="card">
-      <h3>{t("Sahip PIN'i")}</h3>
+      <h3>{t("Owner PIN")}</h3>
       <p className="muted">
         {t(
-          "Ekip lideri ({name}) yönetici yetkilerine sahiptir: bot ekler, siler, yetki verir, tablo oluşturur. PIN belirlersen lidere, Ayarlar'a ve bot/tablo düzenlemeye sadece PIN'i bilen işletme sahibi ulaşır. Çalışanlar diğer botlarla konuşabilir ve kayıtları kullanabilir.",
+          "The team lead ({name}) has admin rights: it adds and deletes bots, grants permissions and creates tables. If you set a PIN, only the business owner who knows it can reach the lead, Settings and bot/table editing. Staff can still talk to the other bots and use the records.",
           { name: s.bots.find((b) => b.lead)?.name ?? "" },
         )}
       </p>
       {s.owner.hasPin && (
         <label>
-          {t("Mevcut PIN")}
+          {t("Current PIN")}
           <input type="password" inputMode="numeric" value={cur} onChange={(e) => setCur(e.target.value)} />
         </label>
       )}
       <label>
-        {s.owner.hasPin ? t("Yeni PIN (4-8 hane)") : t("PIN (4-8 hane)")}
+        {s.owner.hasPin ? t("New PIN (4-8 digits)") : t("PIN (4-8 digits)")}
         <input type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
       </label>
       <div className="row">
         <button className="primary" disabled={pin.length < 4} onClick={() => void save(pin)}>
-          {s.owner.hasPin ? t("PIN'i değiştir") : t("PIN belirle")}
+          {s.owner.hasPin ? t("Change PIN") : t("Set PIN")}
         </button>
         {s.owner.hasPin && (
           <button className="ghost danger-text" onClick={() => void save("")}>
-            {t("PIN'i kaldır")}
+            {t("Remove PIN")}
           </button>
         )}
         {msg && <span className="muted">{msg}</span>}
@@ -109,7 +109,7 @@ function PinCard({ s }: { s: PublicState }) {
   );
 }
 
-// ---------- İlk kurulum ----------
+// ---------- First run ----------
 
 export function Onboarding({ s }: { s: PublicState }) {
   const ready = s.settings.hasApiKey;
@@ -132,17 +132,17 @@ export function Onboarding({ s }: { s: PublicState }) {
           <span className="spacer" />
           <LangSwitch lang={s.settings.language} />
         </div>
-        <p className="muted">{t("Her yönetim alanı için düzenlenebilir yapay zekâ bot ekibi.")}</p>
+        <p className="muted">{t("An editable AI bot team for any kind of management work.")}</p>
 
         {step === 0 && (
           <>
-            <h2>{t("1. Claude API anahtarı")}</h2>
+            <h2>{t("1. Claude API key")}</h2>
             <p className="muted">
-              {t("Botlar Claude ile çalışır. Anahtarını şuradan alabilirsin:")}{" "}
+              {t("The bots run on Claude. You can get your key at")}{" "}
               <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noreferrer">
                 platform.claude.com
               </a>
-              . {t("Anahtar bu bilgisayarda Windows şifrelemesiyle saklanır.")}
+              . {t("The key is stored on this computer with Windows encryption.")}
             </p>
             <input type="password" placeholder="sk-ant-..." value={key} onChange={(e) => setKey(e.target.value)} />
             {err && <div className="error-text">{err}</div>}
@@ -156,10 +156,10 @@ export function Onboarding({ s }: { s: PublicState }) {
                   const r = await call<{ ok: boolean; error?: string }>("setApiKey", key);
                   setChecking(false);
                   if (r.ok) setStep(s.bots.length ? 2 : 1);
-                  else setErr(r.error ?? t("Anahtar doğrulanamadı"));
+                  else setErr(r.error ?? t("Could not verify the key"));
                 }}
               >
-                {checking ? t("Kontrol ediliyor…") : t("Devam")}
+                {checking ? t("Checking…") : t("Continue")}
               </button>
             </div>
           </>
@@ -167,8 +167,8 @@ export function Onboarding({ s }: { s: PublicState }) {
 
         {step === 1 && (
           <>
-            <h2>{t("2. Alanını seç")}</h2>
-            <p className="muted">{t("Hazır bir ekip ve tablolarla başla. Sonra her şeyi değiştirebilirsin.")}</p>
+            <h2>{t("2. Pick your field")}</h2>
+            <p className="muted">{t("Start with a ready-made team and tables. You can change everything later.")}</p>
             <div className="templates">
               {templates().map((x) => (
                 <button key={x.id} className={`template ${tpl === x.id ? "active" : ""}`} onClick={() => setTpl(x.id)}>
@@ -180,14 +180,14 @@ export function Onboarding({ s }: { s: PublicState }) {
             </div>
             <div className="row end">
               <button className="ghost" onClick={() => void call("importTemplate", true).then((ok) => ok && setStep(2))}>
-                {t("Dosyadan içe aktar…")}
+                {t("Import from file…")}
               </button>
               <button
                 className="primary"
                 onClick={async () => {
-                  // Mevcut kayıtlar varsa asla sessizce silme.
+                  // Never silently delete existing data.
                   const hasData = s.records.length > 0 || s.bots.length > 0;
-                  if (hasData && !confirm(t("Mevcut botlar, tablolar ve kayıtlar var. Silinip bu şablonla yeniden başlansın mı? (Hayır dersen mevcut ekibin korunur.)"))) {
+                  if (hasData && !confirm(t("You already have bots, tables and records. Delete them and start over with this template? (Choose Cancel to keep your current team.)"))) {
                     setStep(2);
                     return;
                   }
@@ -195,7 +195,7 @@ export function Onboarding({ s }: { s: PublicState }) {
                   setStep(2);
                 }}
               >
-                {t("Devam")}
+                {t("Continue")}
               </button>
             </div>
           </>
@@ -203,25 +203,25 @@ export function Onboarding({ s }: { s: PublicState }) {
 
         {step === 2 && (
           <>
-            <h2>{t("3. Seni tanıyalım")}</h2>
+            <h2>{t("3. About you")}</h2>
             <label>
-              {t("İşletmenin / kurumun adı")}
-              <input value={org} onChange={(e) => setOrg(e.target.value)} placeholder={t("örn. Şifa Polikliniği")} />
+              {t("Name of your business / organization")}
+              <input value={org} onChange={(e) => setOrg(e.target.value)} placeholder={t("e.g. Riverside Clinic")} />
             </label>
             <label>
-              {t("Adın")}
+              {t("Your name")}
               <input value={name} onChange={(e) => setName(e.target.value)} />
             </label>
             <label>
-              {t("Kendinden ve işinden bir iki cümle (botların hepsi okur)")}
-              <textarea rows={3} value={about} onChange={(e) => setAbout(e.target.value)} placeholder={t("örn. Kliniğin müdürüyüm, 3 hekim ve 2 sekreter çalışıyor. Hafta içi 09-18 açığız.")} />
+              {t("A sentence or two about you and your work (every bot reads this)")}
+              <textarea rows={3} value={about} onChange={(e) => setAbout(e.target.value)} placeholder={t("e.g. I run the clinic; we have 3 doctors and 2 receptionists. Open weekdays 9 to 6.")} />
             </label>
             <div className="row end">
               <button className="ghost" onClick={() => setStep(1)}>
-                {t("Geri")}
+                {t("Back")}
               </button>
               <button className="primary" onClick={() => void call("updateSettings", { orgName: org, userName: name, userAbout: about, onboarded: true })}>
-                {t("Başla")}
+                {t("Start")}
               </button>
             </div>
           </>
@@ -231,14 +231,14 @@ export function Onboarding({ s }: { s: PublicState }) {
   );
 }
 
-// ---------- Bot düzenleyici ----------
+// ---------- Bot editor ----------
 
 const EFFORTS: { id: Effort; label: string }[] = [
-  { id: "low", label: "Düşük: hızlı ve ucuz" },
-  { id: "medium", label: "Orta (önerilen)" },
-  { id: "high", label: "Yüksek: daha dikkatli" },
-  { id: "xhigh", label: "Çok yüksek" },
-  { id: "max", label: "En yüksek: yavaş, pahalı" },
+  { id: "low", label: "Low: fast and cheap" },
+  { id: "medium", label: "Medium (recommended)" },
+  { id: "high", label: "High: more careful" },
+  { id: "xhigh", label: "Very high" },
+  { id: "max", label: "Max: slow, expensive" },
 ];
 const EMOJIS = ["🤖", "🧭", "📅", "🧾", "💰", "📦", "🛒", "🏠", "🤝", "🍽️", "🥕", "🔎", "📋", "💼", "📞", "✉️", "📊", "🩺", "⚖️", "🚚", "🎓"];
 
@@ -249,22 +249,22 @@ export function BotEditor({ s, bot, onClose }: { s: PublicState; bot: Bot | null
   const emojis = EMOJIS.includes(d.emoji) ? EMOJIS : [d.emoji, ...EMOJIS];
   const toggle = (g: ToolGroup) => setD({ ...d, tools: d.tools.includes(g) ? d.tools.filter((x) => x !== g) : [...d.tools, g] });
   const save = () => {
-    if (!d.name.trim()) return alert(t("Bot adı gerekli."));
-    if (s.bots.some((b) => b.id !== d.id && b.name.toLocaleLowerCase(locale()) === d.name.trim().toLocaleLowerCase(locale()))) return alert(t("Bu adda bir bot zaten var."));
-    void call("saveBot", { ...d, name: d.name.trim(), role: d.role.trim() || t("Ekip üyesi"), folder: (d.folder ?? "").replace(/\s+/g, " ").trim().slice(0, 40) });
+    if (!d.name.trim()) return alert(t("Bot name is required."));
+    if (s.bots.some((b) => b.id !== d.id && b.name.toLocaleLowerCase(locale()) === d.name.trim().toLocaleLowerCase(locale()))) return alert(t("A bot with this name already exists."));
+    void call("saveBot", { ...d, name: d.name.trim(), role: d.role.trim() || t("Team member"), folder: (d.folder ?? "").replace(/\s+/g, " ").trim().slice(0, 40) });
     onClose();
   };
   return (
     <div className="modal-back" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>{bot ? t("{name} botunu düzenle", { name: bot.name }) : t("Yeni bot")}</h2>
+        <h2>{bot ? t("Edit {name}", { name: bot.name }) : t("New bot")}</h2>
         <div className="row">
           <label className="grow">
-            {t("Ad")}
-            <input value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} placeholder={t("örn. Randevu")} />
+            {t("Name")}
+            <input value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} placeholder={t("e.g. Appointments")} />
           </label>
           <label>
-            {t("Simge")}
+            {t("Icon")}
             <select value={d.emoji} onChange={(e) => setD({ ...d, emoji: e.target.value })}>
               {emojis.map((e) => (
                 <option key={e}>{e}</option>
@@ -273,12 +273,12 @@ export function BotEditor({ s, bot, onClose }: { s: PublicState; bot: Bot | null
           </label>
         </div>
         <label>
-          {t("Görevi")}
-          <input value={d.role} onChange={(e) => setD({ ...d, role: e.target.value })} placeholder={t("örn. Randevu sorumlusu")} />
+          {t("Role")}
+          <input value={d.role} onChange={(e) => setD({ ...d, role: e.target.value })} placeholder={t("e.g. Appointment manager")} />
         </label>
         <label>
-          {t("Klasör (isteğe bağlı)")}
-          <input list="bot-folders" value={d.folder ?? ""} onChange={(e) => setD({ ...d, folder: e.target.value })} placeholder={t("örn. Muhasebe — boş bırakırsan klasörsüz kalır")} />
+          {t("Folder (optional)")}
+          <input list="bot-folders" value={d.folder ?? ""} onChange={(e) => setD({ ...d, folder: e.target.value })} placeholder={t("e.g. Accounting — leave empty for no folder")} />
           <datalist id="bot-folders">
             {[...new Set(s.bots.map((b) => b.folder).filter((f): f is string => !!f))]
               .sort((a, b) => a.localeCompare(b, locale()))
@@ -288,10 +288,10 @@ export function BotEditor({ s, bot, onClose }: { s: PublicState; bot: Bot | null
           </datalist>
         </label>
         <label>
-          {t("Talimatlar: nasıl çalışsın, nelere dikkat etsin")}
+          {t("Instructions: how it should work, what to watch out for")}
           <textarea rows={5} value={d.instructions} onChange={(e) => setD({ ...d, instructions: e.target.value })} />
         </label>
-        <div className="section-title">{t("Araçlar")}</div>
+        <div className="section-title">{t("Tools")}</div>
         <div className="checks">
           {(Object.keys(TOOL_GROUP_LABELS) as ToolGroup[]).map((g) => (
             <label key={g} className="check">
@@ -304,14 +304,14 @@ export function BotEditor({ s, bot, onClose }: { s: PublicState; bot: Bot | null
         </div>
         <div className="row">
           <label className="grow">
-            {t("Onay")}
+            {t("Approval")}
             <select value={d.approval} onChange={(e) => setD({ ...d, approval: e.target.value as Bot["approval"] })}>
-              <option value="ask">{t("Yazan/gönderen her işlemden önce sor")}</option>
-              <option value="auto">{t("Sormadan yap (silme ve ödeme yine sorulur)")}</option>
+              <option value="ask">{t("Ask before anything that writes or sends")}</option>
+              <option value="auto">{t("Act without asking (deletes and payments still ask)")}</option>
             </select>
           </label>
           <label className="grow">
-            {t("Düşünme düzeyi")}
+            {t("Thinking level")}
             <select value={d.effort} onChange={(e) => setD({ ...d, effort: e.target.value as Effort })}>
               {EFFORTS.map((x) => (
                 <option key={x.id} value={x.id}>
@@ -325,7 +325,7 @@ export function BotEditor({ s, bot, onClose }: { s: PublicState; bot: Bot | null
           Model
           <select value={d.model ?? ""} onChange={(e) => setD({ ...d, model: e.target.value || undefined })}>
             <option value="">
-              {t("Varsayılan")} ({t(MODELS.find((m) => m.id === s.settings.model)?.label ?? s.settings.model)})
+              {t("Default")} ({t(MODELS.find((m) => m.id === s.settings.model)?.label ?? s.settings.model)})
             </option>
             {MODELS.map((m) => (
               <option key={m.id} value={m.id}>
@@ -336,28 +336,28 @@ export function BotEditor({ s, bot, onClose }: { s: PublicState; bot: Bot | null
         </label>
         <label className="check">
           <input type="checkbox" checked={d.lead} onChange={(e) => setD({ ...d, lead: e.target.checked })} />
-          <span>{t("Ekip lideri (ana bot)")}</span>
+          <span>{t("Team lead (main bot)")}</span>
         </label>
         <div className="row end">
           {bot && s.bots.length > 1 && (
             <button
               className="ghost danger-text"
               onClick={() => {
-                if (confirm(t("{name} botu ve sohbet geçmişi silinsin mi?", { name: bot.name }))) {
+                if (confirm(t("Delete {name} and its chat history?", { name: bot.name }))) {
                   void call("deleteBot", bot.id);
                   onClose();
                 }
               }}
             >
-              {t("Botu sil")}
+              {t("Delete bot")}
             </button>
           )}
           <span className="spacer" />
           <button className="ghost" onClick={onClose}>
-            {t("Vazgeç")}
+            {t("Cancel")}
           </button>
           <button className="primary" onClick={save}>
-            {t("Kaydet")}
+            {t("Save")}
           </button>
         </div>
       </div>
@@ -365,23 +365,23 @@ export function BotEditor({ s, bot, onClose }: { s: PublicState; bot: Bot | null
   );
 }
 
-// ---------- Hafıza ----------
+// ---------- Memory ----------
 
 export function MemoryView({ s }: { s: PublicState }) {
   const [text, setText] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
-  const who = (id: string) => (id === "you" ? t("Sen") : (s.bots.find((b) => b.id === id)?.name ?? "Bot"));
+  const who = (id: string) => (id === "you" ? t("You") : (s.bots.find((b) => b.id === id)?.name ?? "Bot"));
   return (
     <div className="page">
       <header className="page-head">
-        <h1>{t("Hafıza")}</h1>
-        <span className="muted">{t("Ekibin ortak hafızası. Bütün botlar bunları bilir. Sen de ekleyip düzeltebilirsin.")}</span>
+        <h1>{t("Memory")}</h1>
+        <span className="muted">{t("The team's shared memory. Every bot knows these. You can add and edit them too.")}</span>
       </header>
       <div className="row">
         <input
           className="grow"
-          placeholder={t("örn. Cumartesi günleri 10-14 arası açığız.")}
+          placeholder={t("e.g. We're open 10 to 2 on Saturdays.")}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -399,7 +399,7 @@ export function MemoryView({ s }: { s: PublicState }) {
             setText("");
           }}
         >
-          {t("Ekle")}
+          {t("Add")}
         </button>
       </div>
       <div className="list">
@@ -415,7 +415,7 @@ export function MemoryView({ s }: { s: PublicState }) {
                     setEditing(null);
                   }}
                 >
-                  {t("Kaydet")}
+                  {t("Save")}
                 </button>
               </>
             ) : (
@@ -433,35 +433,35 @@ export function MemoryView({ s }: { s: PublicState }) {
                     setDraft(m.text);
                   }}
                 >
-                  {t("Düzenle")}
+                  {t("Edit")}
                 </button>
                 <button className="ghost small" onClick={() => void call("deleteMemory", m.id)}>
-                  {t("Sil")}
+                  {t("Delete")}
                 </button>
               </>
             )}
           </div>
         ))}
-        {!s.memory.length && <div className="muted center">{t("Hafıza boş.")}</div>}
+        {!s.memory.length && <div className="muted center">{t("Memory is empty.")}</div>}
       </div>
     </div>
   );
 }
 
-// ---------- Ekran görevleri ----------
+// ---------- Screen tasks ----------
 
-const TASK_STATE: Record<string, string> = { running: "Çalışıyor", paused: "Onay bekliyor", done: "Bitti", failed: "Hata", stopped: "Durduruldu" };
+const TASK_STATE: Record<string, string> = { running: "Running", paused: "Waiting for approval", done: "Done", failed: "Error", stopped: "Stopped" };
 
 export function TasksView({ s, onWatch }: { s: PublicState; onWatch: (botId: string) => void }) {
   const [open, setOpen] = useState<string | null>(s.tasks[0]?.id ?? null);
   return (
     <div className="page">
       <header className="page-head">
-        <h1>{t("Ekran görevleri")}</h1>
-        <span className="muted">{t("Botların kendi tarayıcılarında yaptığı işler. İzleyebilir, kontrolü alabilir veya durdurabilirsin.")}</span>
+        <h1>{t("Screen tasks")}</h1>
+        <span className="muted">{t("Work the bots do in their own browsers. You can watch, take control or stop them.")}</span>
         <span className="spacer" />
         <button className="ghost" onClick={() => void call("clearFinishedTasks")}>
-          {t("Bitenleri temizle")}
+          {t("Clear finished")}
         </button>
       </header>
       <div className="list">
@@ -475,10 +475,10 @@ export function TasksView({ s, onWatch }: { s: PublicState; onWatch: (botId: str
                 <div className="grow">
                   <b>{task.goal.slice(0, 140)}</b>
                   <div className="tiny muted">
-                    {bot?.name} · {timeAgo(task.startedAt)} · {t("{n} adım", { n: task.steps.length })}
+                    {bot?.name} · {timeAgo(task.startedAt)} · {t("{n} steps", { n: task.steps.length })}
                   </div>
                 </div>
-                <span className={`pill ${task.state}`}>{task.userControl ? t("Kontrol sende") : t(TASK_STATE[task.state])}</span>
+                <span className={`pill ${task.state}`}>{task.userControl ? t("You're in control") : t(TASK_STATE[task.state])}</span>
                 {bot && (
                   <button
                     className="ghost small"
@@ -487,7 +487,7 @@ export function TasksView({ s, onWatch }: { s: PublicState; onWatch: (botId: str
                       onWatch(bot.id);
                     }}
                   >
-                    {t("İzle")}
+                    {t("Watch")}
                   </button>
                 )}
                 {live && (
@@ -499,7 +499,7 @@ export function TasksView({ s, onWatch }: { s: PublicState; onWatch: (botId: str
                         void call("setUserControl", task.id, !task.userControl);
                       }}
                     >
-                      {task.userControl ? t("Kontrolü ver") : t("Kontrolü al")}
+                      {task.userControl ? t("Hand back control") : t("Take control")}
                     </button>
                     <button
                       className="danger small"
@@ -508,7 +508,7 @@ export function TasksView({ s, onWatch }: { s: PublicState; onWatch: (botId: str
                         void call("stopTask", task.id);
                       }}
                     >
-                      {t("Durdur")}
+                      {t("Stop")}
                     </button>
                   </>
                 )}
@@ -522,7 +522,7 @@ export function TasksView({ s, onWatch }: { s: PublicState; onWatch: (botId: str
                   ))}
                   {task.result && (
                     <div className="result">
-                      {t("Sonuç:")} {task.result}
+                      {t("Result:")} {task.result}
                     </div>
                   )}
                 </div>
@@ -532,7 +532,7 @@ export function TasksView({ s, onWatch }: { s: PublicState; onWatch: (botId: str
         })}
         {!s.tasks.length && (
           <div className="muted center">
-            {t('Henüz ekran görevi yok. "Ekran" aracı açık bir bottan bir web sitesinde iş yapmasını iste, örn. "Şu sitedeki fiyat listesini tabloya aktar".')}
+            {t("No screen tasks yet. Ask a bot with the \"Screen\" tool to do something on a website, e.g. \"Copy the price list from this site into a table\".")}
           </div>
         )}
       </div>
@@ -549,8 +549,8 @@ export function ApprovalsView({ s }: { s: PublicState }) {
   return (
     <div className="page">
       <header className="page-head">
-        <h1>{t("Onaylar")}</h1>
-        <span className="muted">{t("Botlar yazan, gönderen veya silen işlemlerden önce burada senden onay ister.")}</span>
+        <h1>{t("Approvals")}</h1>
+        <span className="muted">{t("Bots ask for your approval here before anything that writes, sends or deletes.")}</span>
       </header>
       {pending.map((a) => (
         <div key={a.id}>
@@ -560,8 +560,8 @@ export function ApprovalsView({ s }: { s: PublicState }) {
           <ApprovalCard a={a} />
         </div>
       ))}
-      {!pending.length && <div className="muted center">{t("Bekleyen onay yok.")}</div>}
-      {!!done.length && <div className="section-title">{t("Geçmiş")}</div>}
+      {!pending.length && <div className="muted center">{t("No pending approvals.")}</div>}
+      {!!done.length && <div className="section-title">{t("History")}</div>}
       {done.map((a) => (
         <div key={a.id}>
           <div className="tiny muted">
@@ -585,35 +585,35 @@ export function SettingsView({ s }: { s: PublicState }) {
   return (
     <div className="page narrow">
       <header className="page-head">
-        <h1>{t("Ayarlar")}</h1>
+        <h1>{t("Settings")}</h1>
       </header>
 
       <div className="card">
-        <h3>{t("Dil")}</h3>
+        <h3>{t("Language")}</h3>
         <div className="row">
           <LangSwitch lang={st.language} />
-          <span className="muted">{t("Arayüzün ve botların cevaplarının dili.")}</span>
+          <span className="muted">{t("Language of the interface and of the bots' replies.")}</span>
         </div>
       </div>
 
       <PinCard s={s} />
 
       <div className="card">
-        <h3>{t("Sen ve işletmen")}</h3>
+        <h3>{t("You and your business")}</h3>
         <label>
-          {t("İşletme / kurum adı")}
+          {t("Business / organization name")}
           <input defaultValue={st.orgName} onBlur={(e) => upd({ orgName: e.target.value })} />
         </label>
         <label>
-          {t("Alan (sektör)")}
-          <input defaultValue={st.orgKind} onBlur={(e) => upd({ orgKind: e.target.value })} placeholder={t("örn. Sağlık, Lojistik, Eğitim…")} />
+          {t("Field (industry)")}
+          <input defaultValue={st.orgKind} onBlur={(e) => upd({ orgKind: e.target.value })} placeholder={t("e.g. Healthcare, Logistics, Education…")} />
         </label>
         <label>
-          {t("Adın")}
+          {t("Your name")}
           <input defaultValue={st.userName} onBlur={(e) => upd({ userName: e.target.value })} />
         </label>
         <label>
-          {t("Hakkında (botların hepsi okur)")}
+          {t("About (every bot reads this)")}
           <textarea rows={3} defaultValue={st.userAbout} onBlur={(e) => upd({ userAbout: e.target.value })} />
         </label>
       </div>
@@ -621,7 +621,7 @@ export function SettingsView({ s }: { s: PublicState }) {
       <div className="card">
         <h3>Claude</h3>
         <label>
-          {t("Varsayılan model")}
+          {t("Default model")}
           <select value={st.model} onChange={(e) => upd({ model: e.target.value })}>
             {MODELS.map((m) => (
               <option key={m.id} value={m.id}>
@@ -631,19 +631,19 @@ export function SettingsView({ s }: { s: PublicState }) {
           </select>
         </label>
         <label>
-          {t("API anahtarı")} {st.hasApiKey ? t("(kayıtlı ✓)") : t("(yok)")}
+          {t("API key")} {st.hasApiKey ? t("(saved ✓)") : t("(none)")}
           <div className="row">
-            <input className="grow" type="password" placeholder={t("Yeni anahtar: sk-ant-...")} value={key} onChange={(e) => setKey(e.target.value)} />
+            <input className="grow" type="password" placeholder={t("New key: sk-ant-...")} value={key} onChange={(e) => setKey(e.target.value)} />
             <button
               className="primary"
               disabled={!key.trim()}
               onClick={async () => {
                 const r = await call<{ ok: boolean; error?: string }>("setApiKey", key);
-                setMsg(r.ok ? t("Anahtar kaydedildi.") : (r.error ?? t("Hata")));
+                setMsg(r.ok ? t("Key saved.") : (r.error ?? t("Error")));
                 if (r.ok) setKey("");
               }}
             >
-              {t("Kaydet")}
+              {t("Save")}
             </button>
           </div>
         </label>
@@ -651,14 +651,14 @@ export function SettingsView({ s }: { s: PublicState }) {
       </div>
 
       <div className="card">
-        <h3>{t("Şablonlar")}</h3>
-        <p className="muted">{t("Ekibini ve tablo yapını dosyaya aktarıp başka bir işletmede kullanabilirsin. Kayıtlar ve sohbetler dosyaya girmez.")}</p>
+        <h3>{t("Templates")}</h3>
+        <p className="muted">{t("Export your team and table structure to a file and reuse it at another business. Records and chats are not included.")}</p>
         <div className="row">
           <button className="ghost" onClick={() => void call("exportTemplate")}>
-            {t("Ekibi dışa aktar…")}
+            {t("Export team…")}
           </button>
           <button className="ghost" onClick={() => void call("importTemplate", false)}>
-            {t("Şablon ekle (içe aktar)…")}
+            {t("Add template (import)…")}
           </button>
         </div>
         <div className="row">
@@ -670,15 +670,15 @@ export function SettingsView({ s }: { s: PublicState }) {
             ))}
           </select>
           <button className="ghost" onClick={() => void call("applyTemplate", tpl, false)}>
-            {t("Botlarını ve tablolarını ekle")}
+            {t("Add its bots and tables")}
           </button>
           <button
             className="ghost danger-text"
             onClick={() => {
-              if (confirm(t("Mevcut botlar, sohbetler, tablolar ve tüm kayıtlar silinip bu şablonla yeniden başlanacak. Emin misin?"))) void call("applyTemplate", tpl, true);
+              if (confirm(t("All current bots, chats, tables and records will be deleted and replaced with this template. Are you sure?"))) void call("applyTemplate", tpl, true);
             }}
           >
-            {t("Sıfırla ve uygula")}
+            {t("Reset and apply")}
           </button>
         </div>
       </div>

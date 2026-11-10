@@ -12,7 +12,7 @@ import { setFrameSink, userInput, watchScreen, type UserInput } from "./screen";
 import { setUserControl, stopTask } from "./screenTask";
 import { applyTemplate, botById, changed, checkPin, exportTemplate, hasPin, leadBot, loadState, lockOwner, newId, onChange, publicState, requireOwner, saveNow, setPin, state, unlockOwner, writeApiKey } from "./store";
 
-// Uygulamanın giriş noktası: ana pencereyi açar ve arayüzden gelen istekleri (IPC) karşılar.
+// App entry point: opens the main window and handles requests (IPC) from the interface.
 
 let main: BrowserWindow | null = null;
 
@@ -40,7 +40,7 @@ function createWindow() {
   else void main.loadFile(path.join(__dirname, "../renderer/index.html"));
   main.on("closed", () => {
     main = null;
-    // Ana pencere kapanınca botların ekranları da kapanır ve uygulama biter.
+    // When the main window closes, the bots' screens close too and the app quits.
     app.quit();
   });
 }
@@ -50,7 +50,7 @@ function validTemplate(t: unknown): t is Template {
   return !!x && Array.isArray(x.bots) && Array.isArray(x.collections) && x.bots.every((b) => typeof b.name === "string");
 }
 
-// Arayüzün çağırabileceği işlemler. Her biri ipcMain.handle ile "api:<ad>" kanalına bağlanır.
+// Actions the interface can call. Each one is bound to the "api:<name>" channel with ipcMain.handle.
 const api = {
   getState: () => publicState(),
 
@@ -60,9 +60,9 @@ const api = {
     setLang(state.settings.language);
     changed();
   },
-  /** Dil seçimi: sahip kilidi kapalıyken de çalışanlar değiştirebilir. */
+  /** Language choice: staff can change it even while the owner lock is closed. */
   setLanguage: (lang: string) => {
-    state.settings.language = lang === "en" ? "en" : "tr";
+    state.settings.language = lang === "tr" ? "tr" : "en";
     setLang(state.settings.language);
     changed();
   },
@@ -83,20 +83,20 @@ const api = {
 
   applyTemplate: (id: string, replace: boolean) => {
     const tpl = templates().find((x) => x.id === id);
-    if (!tpl) throw new Error(tr("Şablon yok"));
+    if (!tpl) throw new Error(tr("No such template"));
     applyTemplate(tpl, replace);
   },
   exportTemplate: async () => {
-    const r = await dialog.showSaveDialog(main!, { title: tr("Ekibi dışa aktar"), defaultPath: "teds-template.json", filters: [{ name: "JSON", extensions: ["json"] }] });
+    const r = await dialog.showSaveDialog(main!, { title: tr("Export team"), defaultPath: "teds-template.json", filters: [{ name: "JSON", extensions: ["json"] }] });
     if (r.canceled || !r.filePath) return false;
     fs.writeFileSync(r.filePath, JSON.stringify(exportTemplate(), null, 2), "utf8");
     return true;
   },
   importTemplate: async (replace: boolean) => {
-    const r = await dialog.showOpenDialog(main!, { title: tr("Şablon içe aktar"), filters: [{ name: "JSON", extensions: ["json"] }], properties: ["openFile"] });
+    const r = await dialog.showOpenDialog(main!, { title: tr("Import template"), filters: [{ name: "JSON", extensions: ["json"] }], properties: ["openFile"] });
     if (r.canceled || !r.filePaths[0]) return false;
     const t = JSON.parse(fs.readFileSync(r.filePaths[0], "utf8"));
-    if (!validTemplate(t)) throw new Error(tr("Bu dosya geçerli bir Teds şablonu değil."));
+    if (!validTemplate(t)) throw new Error(tr("This file is not a valid Teds template."));
     applyTemplate(t, replace);
     return true;
   },
@@ -122,7 +122,7 @@ const api = {
     try {
       await handleMessage(botId, text);
     } catch {
-      /* hata zaten sohbete yazıldı */
+      /* the error is already shown in the chat */
     }
   },
   stopChat: (botId: string) => {
@@ -135,18 +135,18 @@ const api = {
   },
 
   answerApproval: (id: string, ok: boolean, note?: string) => {
-    // Liderin (yönetici işlemlerinin) onaylarını sadece sahip verebilir.
+    // Only the owner can answer the lead's (admin) approvals.
     if (state.approvals.find((a) => a.id === id)?.botId === leadBot()?.id) requireOwner();
     answerApproval(id, ok, note);
   },
 
   unlockOwner: (pin: string) => unlockOwner(pin),
   lockOwner: () => lockOwner(),
-  /** PIN belirler veya değiştirir. PIN varsa mevcut PIN de doğru olmalı. Boş PIN kilidi kaldırır. */
+  /** Sets or changes the PIN. If a PIN exists, the current PIN must match. An empty PIN removes the lock. */
   setOwnerPin: (pin: string, current: string) => {
-    if (hasPin() && !checkPin(current)) return { ok: false, error: tr("Mevcut PIN yanlış.") };
+    if (hasPin() && !checkPin(current)) return { ok: false, error: tr("Current PIN is wrong.") };
     const p = pin.trim();
-    if (p && !/^[0-9]{4,8}$/.test(p)) return { ok: false, error: tr("PIN 4-8 haneli bir sayı olmalı.") };
+    if (p && !/^[0-9]{4,8}$/.test(p)) return { ok: false, error: tr("The PIN must be a 4-8 digit number.") };
     setPin(p || null);
     return { ok: true };
   },
@@ -191,20 +191,20 @@ const api = {
 
   stopTask: (id: string) => stopTask(id),
   setUserControl: (id: string, on: boolean) => setUserControl(id, on),
-  /** Botun ekranını canlı izlemeyi aç/kapat. Liderin ekranı sadece sahibe açıktır. */
+  /** Starts/stops watching a bot's screen live. The lead's screen is owner-only. */
   watchScreen: (botId: string, on: boolean) => {
     const b = botById(botId);
     if (!b) return;
     if (on && b.lead) requireOwner();
     watchScreen(b.id, b.name, on);
   },
-  /** Kullanıcının panelden tıklaması/yazması. Bot çalışıyorsa önce kontrolü alması gerekir. */
+  /** The user's clicks/typing in the panel. If the bot is working, the user must take control first. */
   screenInput: async (botId: string, ev: UserInput) => {
     const b = botById(botId);
     if (!b) return;
     if (b.lead) requireOwner();
     const t = state.tasks.find((x) => x.botId === botId && (x.state === "running" || x.state === "paused"));
-    if (t && !t.userControl && ev.type !== "navigate") throw new Error(tr("Bot çalışırken önce Kontrolü al."));
+    if (t && !t.userControl && ev.type !== "navigate") throw new Error(tr("Take control first while the bot is working."));
     await userInput(b.id, b.name, ev);
   },
   clearFinishedTasks: () => {
@@ -213,7 +213,7 @@ const api = {
   },
 };
 
-// Geliştirme testi: TEDS_DEBUG=1 iken ekran işlemlerini doğrudan çalıştırmaya izin ver.
+// Development testing: with TEDS_DEBUG=1, allow running screen actions directly.
 if (process.env.TEDS_DEBUG === "1") {
   Object.assign(api, {
     debugScreen: async (botId: string, name: string, input: Record<string, unknown>) => {
@@ -236,7 +236,7 @@ if (process.env.TEDS_DEBUG === "1") {
       const crypto = await import("node:crypto");
       return { bytes: shot.base64.length, hash: crypto.createHash("md5").update(shot.base64).digest("hex").slice(0, 8) };
     },
-    /** Bekleyen bir onay kartı oluşturur (ekran görüntüsü ve arayüz testi için). */
+    /** Creates a pending approval card (for screenshots and UI tests). */
     debugApproval: (botId: string, title: string, detail: string) => {
       void requestApproval({ botId, title, detail });
     },
@@ -251,10 +251,10 @@ export type Api = typeof api;
 
 app.setAppUserModelId("com.teds.app");
 
-// Testler için ayrı veri klasörü (gerçek verilere dokunmamak için).
+// A separate data folder for tests (so real data is never touched).
 if (process.env.TEDS_DATA_DIR) app.setPath("userData", process.env.TEDS_DATA_DIR);
 
-// Aynı anda tek Teds: iki pencere aynı veri dosyasına yazıp birbirinin kayıtlarını silmesin.
+// Only one Teds at a time: two windows must not write the same data file and erase each other's records.
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -268,7 +268,7 @@ if (!app.requestSingleInstanceLock()) {
 app.whenReady().then(() => {
   loadState();
   setLang(state.settings.language);
-  // Sahip işlemleri: Sahip PIN'i belirlenmişse kilit açıkken çalışır.
+  // Owner actions: if an owner PIN is set, they only work while unlocked.
   const OWNER_ONLY = new Set(["updateSettings", "setApiKey", "applyTemplate", "exportTemplate", "importTemplate", "saveBot", "deleteBot", "saveCollection", "deleteCollection"]);
   for (const [name, fn] of Object.entries(api)) {
     ipcMain.handle(`api:${name}`, (_e, ...args: unknown[]) => {

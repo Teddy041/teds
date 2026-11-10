@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { PublicState } from "../shared/types";
 
-// Arayüze güvenli köprü: sadece "api:*" kanallarına çağrı ve durum güncellemelerini dinleme.
+// A safe bridge for the interface: only calls to "api:*" channels and listening for updates.
 
 contextBridge.exposeInMainWorld("teds", {
   call: (name: string, ...args: unknown[]) => ipcRenderer.invoke(`api:${name}`, ...args),

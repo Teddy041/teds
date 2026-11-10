@@ -1,38 +1,33 @@
-import { EN } from "./i18n.en";
+import { TR } from "./i18n.tr";
 
-// Dil desteği. Uygulamanın kaynak dili Türkçedir: her metin t("Türkçe metin") ile yazılır,
-// İngilizce seçiliyse i18n.en.ts sözlüğündeki karşılığı gösterilir. Karşılığı yoksa Türkçe metin kalır.
-// Değişkenler {ad} biçiminde yazılır: t("{name} düşünüyor…", { name: "Teds" }).
+// Language support. The source language is English: every UI string is written as t("English text").
+// When Turkish is selected, its translation from i18n.tr.ts is shown; strings without one stay in English.
+// Variables use the {name} form: t("{name} is thinking…", { name: "Teds" }).
 
 export type Lang = "tr" | "en";
 
 export const LANGS: { id: Lang; label: string }[] = [
-  { id: "tr", label: "Türkçe" },
   { id: "en", label: "English" },
+  { id: "tr", label: "Türkçe" },
 ];
 
-let current: Lang = "tr";
+let current: Lang = "en";
 
 export function setLang(l: Lang | undefined) {
-  current = l === "en" ? "en" : "tr";
+  current = l === "tr" ? "tr" : "en";
 }
 
 export function getLang(): Lang {
   return current;
 }
 
-/** Tarih/saat biçimlendirmesi için yerel ayar. */
+/** Locale for formatting dates and times. */
 export function locale(): string {
-  return current === "en" ? "en-GB" : "tr-TR";
+  return current === "tr" ? "tr-TR" : "en-GB";
 }
 
 export function t(text: string, vars?: Record<string, string | number>): string {
-  let out = current === "en" ? (EN[text] ?? text) : text;
+  let out = current === "tr" ? (TR[text] ?? text) : text;
   if (vars) for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(String(v));
   return out;
-}
-
-/** Sözlükte karşılığı olmayan metinleri bulmak için (geliştirme). */
-export function hasTranslation(text: string): boolean {
-  return text in EN;
 }

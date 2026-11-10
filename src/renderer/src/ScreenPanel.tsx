@@ -3,8 +3,8 @@ import type { Bot, PublicState } from "../../shared/types";
 import { call, type Frame } from "./api";
 import { t } from "../../shared/i18n";
 
-// Botun ekranının canlı görüntüsü, sohbetin yanında. Bot çalışırken izlenir; "Kontrolü al" ile
-// kullanıcı panelin içinde tıklayıp yazabilir. Bot çalışmıyorken kontrol zaten kullanıcıdadır.
+// Live view of a bot's screen, next to the chat. You watch while the bot works; after "Take control"
+// you can click and type inside the panel. When the bot isn't working, you are already in control.
 
 export function ScreenPanel({ s, bot, onClose }: { s: PublicState; bot: Bot; onClose: () => void }) {
   const [frame, setFrame] = useState<Frame | null>(null);
@@ -54,23 +54,23 @@ export function ScreenPanel({ s, bot, onClose }: { s: PublicState; bot: Bot; onC
   return (
     <div className="screen-panel">
       <div className="screen-bar">
-        <button className="ghost small" title={t("Geri")} disabled={botDriving} onClick={() => void send({ type: "back" })}>
+        <button className="ghost small" title={t("Back")} disabled={botDriving} onClick={() => void send({ type: "back" })}>
           ←
         </button>
-        <button className="ghost small" title={t("Yenile")} disabled={botDriving} onClick={() => void send({ type: "reload" })}>
+        <button className="ghost small" title={t("Reload")} disabled={botDriving} onClick={() => void send({ type: "reload" })}>
           ⟳
         </button>
         <input
           className="grow"
           value={addr}
-          placeholder={t("Adres yaz ve Enter'a bas (örn. google.com)")}
+          placeholder={t("Type an address and press Enter (e.g. google.com)")}
           disabled={botDriving}
           onFocus={() => setEditing(true)}
           onBlur={() => setEditing(false)}
           onChange={(e) => setAddr(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && go()}
         />
-        <button className="ghost small" title={t("Paneli kapat")} onClick={onClose}>
+        <button className="ghost small" title={t("Close panel")} onClick={onClose}>
           ✕
         </button>
       </div>
@@ -78,26 +78,26 @@ export function ScreenPanel({ s, bot, onClose }: { s: PublicState; bot: Bot; onC
         {task ? (
           task.userControl ? (
             <>
-              <span className="pill paused">{t("Kontrol sende · bot bekliyor")}</span>
+              <span className="pill paused">{t("You're in control · bot is waiting")}</span>
               <button className="primary small" onClick={() => void call("setUserControl", task.id, false)}>
-                {t("Kontrolü bota ver")}
+                {t("Give control back")}
               </button>
             </>
           ) : (
             <>
-              <span className="pill running">{task.state === "paused" ? t("Bot onay bekliyor") : t("{name} ekranı kullanıyor", { name: bot.name })}</span>
+              <span className="pill running">{task.state === "paused" ? t("Bot is waiting for approval") : t("{name} is using the screen", { name: bot.name })}</span>
               <button className="ghost small" onClick={() => void call("setUserControl", task.id, true)}>
-                {t("Kontrolü al")}
+                {t("Take control")}
               </button>
               <button className="danger small" onClick={() => void call("stopTask", task.id)}>
-                {t("Durdur")}
+                {t("Stop")}
               </button>
             </>
           )
         ) : (
-          <span className="muted tiny">{t("Bot şu an ekranı kullanmıyor; tıklayıp yazabilirsin (örn. bir siteye giriş yapmak için).")}</span>
+          <span className="muted tiny">{t("The bot isn't using the screen; you can click and type (e.g. to log in to a site).")}</span>
         )}
-        {frame?.loading && <span className="muted tiny">{t("Yükleniyor…")}</span>}
+        {frame?.loading && <span className="muted tiny">{t("Loading…")}</span>}
       </div>
       {err && (
         <div className="error-text tiny" onClick={() => setErr("")}>
@@ -124,7 +124,7 @@ export function ScreenPanel({ s, bot, onClose }: { s: PublicState; bot: Bot; onC
           <img
             ref={img}
             src={frame.data}
-            alt={t("{name} ekranı", { name: bot.name })}
+            alt={t("{name}'s screen", { name: bot.name })}
             draggable={false}
             onMouseDown={(e) => {
               box.current?.focus();
@@ -141,9 +141,9 @@ export function ScreenPanel({ s, bot, onClose }: { s: PublicState; bot: Bot; onC
             }}
           />
         ) : (
-          <div className="screen-empty muted">{t("Ekran hazırlanıyor…")}</div>
+          <div className="screen-empty muted">{t("Preparing screen…")}</div>
         )}
-        {botDriving && <div className="screen-lock-hint">{t("Bot çalışıyor · tıklamak için “Kontrolü al”")}</div>}
+        {botDriving && <div className="screen-lock-hint">{t("Bot is working · press “Take control” to click")}</div>}
       </div>
     </div>
   );

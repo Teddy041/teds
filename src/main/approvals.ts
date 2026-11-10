@@ -2,8 +2,8 @@ import { Notification } from "electron";
 import { botById, changed, chatFor, newId, state } from "./store";
 import { t } from "../shared/i18n";
 
-// Onay akışı: bot yazan/gönderen bir işlem yapmadan önce kullanıcıya sorar ve cevap gelene kadar bekler.
-// İstek, botun sohbetinde "Yap / Yapma" kartı olarak görünür; ayrıca Onaylar sayfasında listelenir.
+// Approval flow: before anything that writes or sends, the bot asks the user and waits for the answer.
+// The request shows up as a "Do it / Don't" card in the bot's chat and on the Approvals page.
 
 export interface ApprovalAnswer {
   ok: boolean;
@@ -20,7 +20,7 @@ export function requestApproval(o: { botId: string; title: string; detail: strin
   changed();
   const bot = botById(o.botId);
   if (Notification.isSupported()) {
-    new Notification({ title: t("{name} onay bekliyor", { name: bot?.name ?? "Bot" }), body: o.title }).show();
+    new Notification({ title: t("{name} is waiting for approval", { name: bot?.name ?? "Bot" }), body: o.title }).show();
   }
   return new Promise((resolve) => waiting.set(id, resolve));
 }
@@ -35,15 +35,15 @@ export function answerApproval(id: string, ok: boolean, note?: string) {
   waiting.delete(id);
 }
 
-/** Bir görev durdurulunca bekleyen onaylarını reddet. */
+/** When a task is stopped, reject its pending approvals. */
 export function rejectForTask(taskId: string) {
   for (const a of state.approvals) {
-    if (a.taskId === taskId && a.state === "pending") answerApproval(a.id, false, t("Görev durduruldu."));
+    if (a.taskId === taskId && a.state === "pending") answerApproval(a.id, false, t("Task stopped."));
   }
 }
 
 export function rejectForBot(botId: string) {
   for (const a of state.approvals) {
-    if (a.botId === botId && a.state === "pending" && !a.taskId) answerApproval(a.id, false, "Durduruldu.");
+    if (a.botId === botId && a.state === "pending" && !a.taskId) answerApproval(a.id, false, t("Stopped."));
   }
 }

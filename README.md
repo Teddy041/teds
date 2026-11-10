@@ -212,7 +212,7 @@ npm start
 <a id="usage"></a>
 ## 🧭 Usage
 
-1. **First run:** choose a language (TR / EN), paste your Claude API key, pick a template and tell Teds a little about your business.
+1. **First run:** choose a language (EN / TR), paste your Claude API key, pick a template and tell Teds a little about your business.
 2. **Talk to a bot:** pick a bot in the sidebar and give it a job, for example *"Book Sarah Mitchell with Dr. Clarke tomorrow at 10:30"*. Tool steps show up in the chat as small notes.
 3. **Approve:** when a bot wants to write, send or delete, a **Do it / Don't** card appears in the chat and on the **Approvals** page.
 4. **Shape the team:** use **Edit** on a bot, **+ Add bot**, the **Records** page, or simply ask the team lead (*"Create a Supplies table and a Stock bot that can use it"*).
@@ -226,7 +226,7 @@ Your data lives in `%APPDATA%\Teds` (`data.json`, `backups\`, and the encrypted 
 <a id="languages"></a>
 ## 🌍 Languages
 
-Teds ships in **English** and **Turkish**. Use the **TR | EN** switch in the sidebar, on the first-run screen or in Settings.
+Teds ships in **English** (the default) and **Turkish**. Use the **EN | TR** switch in the sidebar, on the first-run screen or in Settings.
 
 The switch changes:
 
@@ -237,7 +237,7 @@ The switch changes:
 
 Content you created yourself (bot names, records, memory, old chats) stays as you wrote it.
 
-Translations live in [`src/shared/i18n.en.ts`](src/shared/i18n.en.ts). The source strings are Turkish, and anything without a translation falls back to Turkish.
+All source strings, prompts and code comments are in English. The Turkish translation lives in [`src/shared/i18n.tr.ts`](src/shared/i18n.tr.ts); anything without a translation falls back to English. Adding another language means adding one more dictionary file.
 
 ---
 
@@ -263,7 +263,7 @@ Translations live in [`src/shared/i18n.en.ts`](src/shared/i18n.en.ts). The sourc
 | --- | --- |
 | `src/shared/types.ts` | All shared data types |
 | `src/shared/templates.ts` | Industry templates (add a new one here) |
-| `src/shared/i18n.ts`, `i18n.en.ts` | Language switch and the English dictionary |
+| `src/shared/i18n.ts`, `i18n.tr.ts` | Language switch and the Turkish dictionary |
 | `src/main/index.ts` | App entry, IPC handlers, owner-only checks |
 | `src/main/store.ts` | State, saving, backups, owner PIN, encrypted API key |
 | `src/main/claude.ts` | Claude agent loop: streaming, tool calls, errors |

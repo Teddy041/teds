@@ -11,22 +11,22 @@ export function ApprovalCard({ a, compact }: { a: Approval; compact?: boolean })
   return (
     <div className={`approval ${a.state}`}>
       <div className="approval-title">
-        {a.state === "pending" ? `⏳ ${t("Onayın gerekiyor")}` : a.state === "approved" ? `✅ ${t("Onaylandı")}` : `⛔ ${t("Reddedildi")}`}
+        {a.state === "pending" ? `⏳ ${t("Needs your approval")}` : a.state === "approved" ? `✅ ${t("Approved")}` : `⛔ ${t("Rejected")}`}
         {!compact && <span className="muted"> · {timeAgo(a.at)}</span>}
       </div>
       <div className="approval-what">{a.title}</div>
       {a.detail && <pre className="approval-detail">{a.detail}</pre>}
       {a.note && a.state !== "pending" && (
         <div className="muted">
-          {t("Not:")} {a.note}
+          {t("Note:")} {a.note}
         </div>
       )}
       {a.state === "pending" && (
         <>
-          {showNote && <input autoFocus placeholder={t("Bota notun (isteğe bağlı): neden yapmasın, ne yapsın?")} value={note} onChange={(e) => setNote(e.target.value)} />}
+          {showNote && <input autoFocus placeholder={t("Note to the bot (optional): why not, and what should it do instead?")} value={note} onChange={(e) => setNote(e.target.value)} />}
           <div className="row">
             <button className="primary" onClick={() => void call("answerApproval", a.id, true)}>
-              {t("Yap")}
+              {t("Do it")}
             </button>
             <button
               className="danger"
@@ -35,7 +35,7 @@ export function ApprovalCard({ a, compact }: { a: Approval; compact?: boolean })
                 else void call("answerApproval", a.id, false, note || undefined);
               }}
             >
-              {showNote ? t("Reddet") : t("Yapma")}
+              {showNote ? t("Reject") : t("Don't")}
             </button>
           </div>
         </>
@@ -73,7 +73,7 @@ export function ChatView({ s, bot, onEdit, openScreen }: { s: PublicState; bot: 
   const runningTask = s.tasks.find((t) => t.botId === bot.id && (t.state === "running" || t.state === "paused"));
 
   const [screenOpen, setScreenOpen] = useState(!!openScreen);
-  // Bot bir ekran görevine başlayınca panel kendiliğinden açılır.
+  // The panel opens by itself when the bot starts a screen task.
   useEffect(() => {
     if (runningTask) setScreenOpen(true);
   }, [runningTask?.id]);
@@ -100,40 +100,40 @@ export function ChatView({ s, bot, onEdit, openScreen }: { s: PublicState; bot: 
         <div>
           <div className="title">{bot.name}</div>
           <div className="muted">
-            {bot.role} · {bot.approval === "ask" ? t("Yazmadan önce sorar") : t("Sadece silme/ödeme için sorar")}
+            {bot.role} · {bot.approval === "ask" ? t("Asks before writing") : t("Asks only for deletes/payments")}
           </div>
         </div>
         <div className="spacer" />
         {bot.tools.includes("screen") && (
           <button className={`ghost ${screenOpen ? "on" : ""}`} onClick={() => setScreenOpen(!screenOpen)}>
-            🖥️ {screenOpen ? t("Ekranı gizle") : t("Ekranı göster")}
+            🖥️ {screenOpen ? t("Hide screen") : t("Show screen")}
           </button>
         )}
         {onEdit && (
           <button className="ghost" onClick={onEdit}>
-            {t("Düzenle")}
+            {t("Edit")}
           </button>
         )}
         <button
           className="ghost"
           onClick={() => {
-            if (confirm(t("{name} ile sohbet geçmişi silinsin mi? (Kayıtlar ve hafıza kalır.)", { name: bot.name }))) void call("clearChat", bot.id);
+            if (confirm(t("Clear the chat history with {name}? (Records and memory are kept.)", { name: bot.name }))) void call("clearChat", bot.id);
           }}
         >
-          {t("Temizle")}
+          {t("Clear")}
         </button>
       </header>
       {runningTask && (
         <div className="task-banner">
-          🖥️ {t("Ekran görevi:")} {runningTask.goal.slice(0, 120)}
+          🖥️ {t("Screen task:")} {runningTask.goal.slice(0, 120)}
           <span className="spacer" />
           {!screenOpen && (
             <button className="ghost small" onClick={() => setScreenOpen(true)}>
-              {t("İzle")}
+              {t("Watch")}
             </button>
           )}
           <button className="ghost small" onClick={() => void call("setUserControl", runningTask.id, !runningTask.userControl)}>
-            {runningTask.userControl ? t("Kontrolü bota ver") : t("Kontrolü al")}
+            {runningTask.userControl ? t("Give control back") : t("Take control")}
           </button>
         </div>
       )}
@@ -142,20 +142,20 @@ export function ChatView({ s, bot, onEdit, openScreen }: { s: PublicState; bot: 
           <div className="empty">
             <div className="emoji huge">{bot.emoji}</div>
             <p>
-              {t("Merhaba, ben")} <b>{bot.name}</b>. {bot.role}.
+              {t("Hi, I'm")} <b>{bot.name}</b>. {bot.role}.
             </p>
-            <p className="muted">{t('Bana bir iş ver. Örneğin: "Bugünkü kayıtları özetle" veya "Yeni bir tablo için hangi alanlar lazım?"')}</p>
+            <p className="muted">{t("Give me a job. For example: \"Summarize today's records\" or \"Which fields do we need for a new table?\"")}</p>
           </div>
         )}
         {msgs.map((m) => (
           <Message key={m.id} m={m} s={s} bot={bot} />
         ))}
-        {busy && !msgs.some((m) => m.streaming) && <div className="msg tool typing">{t("{name} düşünüyor…", { name: bot.name })}</div>}
+        {busy && !msgs.some((m) => m.streaming) && <div className="msg tool typing">{t("{name} is thinking…", { name: bot.name })}</div>}
         <div ref={end} />
       </div>
       <div className="composer">
         <textarea
-          placeholder={t("{name} botuna yaz… (Enter gönderir, Shift+Enter yeni satır)", { name: bot.name })}
+          placeholder={t("Message {name}… (Enter sends, Shift+Enter for a new line)", { name: bot.name })}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -168,11 +168,11 @@ export function ChatView({ s, bot, onEdit, openScreen }: { s: PublicState; bot: 
         />
         {busy ? (
           <button className="danger" onClick={() => void call("stopChat", bot.id)}>
-            {t("Durdur")}
+            {t("Stop")}
           </button>
         ) : (
           <button className="primary" disabled={!text.trim()} onClick={send}>
-            {t("Gönder")}
+            {t("Send")}
           </button>
         )}
       </div>

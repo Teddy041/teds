@@ -3,12 +3,12 @@ import type { Bot, PublicState } from "../../shared/types";
 import { call } from "./api";
 import { locale, t } from "../../shared/i18n";
 
-// Kenar çubuğundaki bot listesi: klasörsüz botlar (lider dahil) üstte, sonra klasörler.
-// Sahip botları sürükleyip bırakarak düzenler:
-//   - bir botu klasörsüz başka bir botun üstüne bırakmak ikisi için yeni bir klasör açar,
-//   - klasördeki bir botun ya da klasör başlığının üstüne bırakmak botu o klasöre taşır,
-//   - "Klasörden çıkar" alanına bırakmak botu klasörden çıkarır.
-// Klasöre sağ tıklayınca (veya çift tıklayınca) adı değiştirilir. Açık/kapalı durumu bu bilgisayarda hatırlanır.
+// The bot list in the sidebar: bots without a folder (the lead included) first, then folders.
+// The owner arranges bots by drag and drop:
+//   - dropping a bot onto another bot without a folder creates a new folder for both,
+//   - dropping onto a bot in a folder, or onto a folder header, moves the bot into that folder,
+//   - dropping onto the "remove from folder" area takes the bot out of its folder.
+// Right-clicking (or double-clicking) a folder renames it. Open/closed state is remembered on this computer.
 
 const KEY = "teds.closedFolders";
 const MIME = "application/x-teds-bot";
@@ -26,7 +26,7 @@ function saveClosed(list: string[]) {
   try {
     localStorage.setItem(KEY, JSON.stringify(list));
   } catch {
-    /* hatırlanamazsa sorun değil */
+    /* fine if it can't be remembered */
   }
 }
 
@@ -45,7 +45,7 @@ export function BotFolders({ s, bots, activeId, owner, onPick }: Props) {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [dragId, setDragId] = useState<string | null>(null);
-  /** Üstünde sürüklenen hedef: "bot:<id>", "folder:<ad>" veya "out". */
+  /** The drop target being dragged over: "bot:<id>", "folder:<name>" or "out". */
   const [over, setOver] = useState<string | null>(null);
 
   const loose = bots.filter((b) => !b.folder);
@@ -77,13 +77,13 @@ export function BotFolders({ s, bots, activeId, owner, onPick }: Props) {
   };
 
   const freshName = () => {
-    const base = t("Yeni klasör");
+    const base = t("New folder");
     let n = base;
     for (let i = 2; folders.includes(n); i++) n = `${base} ${i}`;
     return n;
   };
 
-  // --- Sürükle bırak ---
+  // --- Drag and drop ---
   const dragProps = (b: Bot) =>
     owner
       ? {
@@ -126,7 +126,7 @@ export function BotFolders({ s, bots, activeId, owner, onPick }: Props) {
 
   const dropOnBot = (target: Bot) => async (b: Bot) => {
     if (target.folder) return moveTo(b, target.folder);
-    // İki klasörsüz bot: yeni klasör aç ve hemen adını sor.
+    // Two bots without a folder: create a new folder and ask for its name right away.
     const name = freshName();
     await moveTo(target, name);
     await moveTo(b, name);
@@ -143,7 +143,7 @@ export function BotFolders({ s, bots, activeId, owner, onPick }: Props) {
         key={b.id}
         className={`bot-item ${nested ? "nested" : ""} ${activeId === b.id ? "active" : ""} ${over === target ? "drop-target" : ""} ${dragId === b.id ? "dragging" : ""}`}
         onClick={() => onPick(b.id)}
-        title={owner ? t("Başka bir botun üstüne sürükleyip bırakarak klasör oluştur") : undefined}
+        title={owner ? t("Drag onto another bot to create a folder") : undefined}
         {...dragProps(b)}
         {...dropProps(target, dropOnBot(b))}
       >
@@ -151,10 +151,10 @@ export function BotFolders({ s, bots, activeId, owner, onPick }: Props) {
         <span className="bot-text">
           <span className="bot-name">
             {b.name}
-            {b.lead && <span className="tag">{t("lider")}</span>}
-            {b.lead && !owner && <span title={t("Sadece işletme sahibi")}>🔒</span>}
+            {b.lead && <span className="tag">{t("lead")}</span>}
+            {b.lead && !owner && <span title={t("Business owner only")}>🔒</span>}
           </span>
-          <span className="bot-role">{c?.busy ? t("çalışıyor…") : b.role}</span>
+          <span className="bot-role">{c?.busy ? t("working…") : b.role}</span>
         </span>
         {c?.busy && <span className="dot" />}
       </button>
@@ -165,7 +165,7 @@ export function BotFolders({ s, bots, activeId, owner, onPick }: Props) {
     <>
       {dragged?.folder && (
         <div className={`drop-out ${over === "out" ? "drop-target" : ""}`} {...dropProps("out", (b) => moveTo(b, ""))}>
-          {t("Klasörden çıkarmak için buraya bırak")}
+          {t("Drop here to remove from folder")}
         </div>
       )}
       {loose.map((b) => item(b, false))}
@@ -173,7 +173,7 @@ export function BotFolders({ s, bots, activeId, owner, onPick }: Props) {
         const inside = bots.filter((b) => b.folder === f);
         const open = !closed.includes(f);
         const busy = inside.some((b) => s.chats[b.id]?.busy);
-        // Kapalı klasördeki seçili bot görünmez olmasın diye başlık da vurgulanır.
+        // Highlight the header too, so a selected bot inside a closed folder isn't lost.
         const holdsActive = !open && inside.some((b) => b.id === activeId);
         const target = `folder:${f}`;
         return (
@@ -184,7 +184,7 @@ export function BotFolders({ s, bots, activeId, owner, onPick }: Props) {
                 autoFocus
                 onFocus={(e) => e.currentTarget.select()}
                 value={newName}
-                placeholder={t("Klasör adı (boş bırakırsan klasör kalkar)")}
+                placeholder={t("Folder name (leave empty to remove the folder)")}
                 onChange={(e) => setNewName(e.target.value)}
                 onBlur={() => void rename(f)}
                 onKeyDown={(e) => {
@@ -201,7 +201,7 @@ export function BotFolders({ s, bots, activeId, owner, onPick }: Props) {
                   e.preventDefault();
                   startRename(f);
                 }}
-                title={owner ? t("Tıkla: aç/kapa · Sağ tık: adını değiştir · Üstüne bot bırak: klasöre ekle") : t("Açmak/kapamak için tıkla")}
+                title={owner ? t("Click: open/close · Right-click: rename · Drop a bot on it: add to folder") : t("Click to open/close")}
                 aria-expanded={open}
                 {...dropProps(target, (b) => moveTo(b, f))}
               >
@@ -216,7 +216,7 @@ export function BotFolders({ s, bots, activeId, owner, onPick }: Props) {
           </div>
         );
       })}
-      {owner && bots.length > 1 && !folders.length && !dragId && <div className="folder-hint muted tiny">{t("İpucu: bir botu başka bir botun üstüne sürükleyip bırakınca klasör oluşur.")}</div>}
+      {owner && bots.length > 1 && !folders.length && !dragId && <div className="folder-hint muted tiny">{t("Tip: drag a bot onto another bot to create a folder.")}</div>}
     </>
   );
 }

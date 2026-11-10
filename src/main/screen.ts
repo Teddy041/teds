@@ -1,27 +1,27 @@
 import { BrowserWindow, type NativeImage } from "electron";
 import { t } from "../shared/i18n";
 
-// Botun ekranı: her bot için ayrı, ekran dışında (offscreen) çizilen bir tarayıcı (kendi çerez/oturum bölmesiyle).
-// Görünmeyen bir pencere olduğu için küçültülmesi, arkada kalması veya gizlenmesi görüntüyü bozmaz.
-// Claude'un computer-use araç seti burada çalışır: ekran görüntüsü alınır, tıklama ve tuşlar sentetik
-// giriş olayları olarak gönderilir. Kullanıcı ekranı uygulamanın içindeki panelden canlı izler ve
-// "Kontrolü al" ile kendisi de tıklayıp yazabilir.
+// A bot's screen: a separate browser per bot, rendered offscreen (with its own cookie/session partition).
+// Because the window is never shown, minimizing, covering or hiding things can't break the picture.
+// Claude's computer-use toolset runs here: screenshots are captured, and clicks and keys are sent as
+// synthetic input events. The user watches the screen live in a panel inside the app and can click and
+// type there too after "Take control".
 
 const WIDTH = 1280;
 const HEIGHT = 800;
-/** Ekran görüntüsünün uzun kenarı en fazla bu kadar olur; koordinatlar bu ölçeğe göre çevrilir. */
+/** The longest side of a screenshot is at most this; coordinates are scaled to match. */
 const MAX_LONG_EDGE = 1366;
 
 const BLANK = (name: string) =>
   "data:text/html;charset=utf-8," +
-  encodeURIComponent(`<!doctype html><title>${t("{name} ekranı", { name })}</title><body style="margin:0;height:100vh;display:grid;place-items:center;background:#f3f5fb;font:16px Segoe UI,sans-serif;color:#5b6275"><div style="text-align:center"><div style="font-size:56px">🖥️</div><h2 style="color:#1d2333;margin:8px 0">${t("{name} ekranı", { name })}</h2><p>${t("Bot bir web sitesi açtığında burada canlı görünecek.")}<br>${t("İstersen üstteki adres çubuğundan bir site açabilirsin.")}</p></div>`);
+  encodeURIComponent(`<!doctype html><title>${t("{name}'s screen", { name })}</title><body style="margin:0;height:100vh;display:grid;place-items:center;background:#f3f5fb;font:16px Segoe UI,sans-serif;color:#5b6275"><div style="text-align:center"><div style="font-size:56px">🖥️</div><h2 style="color:#1d2333;margin:8px 0">${t("{name}'s screen", { name })}</h2><p>${t("When the bot opens a website, it shows up here live.")}<br>${t("You can also open a site from the address bar above.")}</p></div>`);
 
 interface Screen {
   win: BrowserWindow;
-  /** Ekran görüntüsü pikseli / pencere DIP oranı. */
+  /** Ratio of screenshot pixels to window DIPs. */
   scale: number;
   cursor: { x: number; y: number };
-  /** Son çizilen kare (canlı izleme için). */
+  /** The last painted frame (for live watching). */
   frame: NativeImage | null;
   lastSent: number;
   pending: NodeJS.Timeout | null;
@@ -29,7 +29,7 @@ interface Screen {
 
 const screens = new Map<string, Screen>();
 
-// --- Canlı izleme ---
+// --- Live watching ---
 
 export interface Frame {
   botId: string;
@@ -38,7 +38,7 @@ export interface Frame {
   title: string;
   width: number;
   height: number;
-  /** Tıklama koordinatlarının uzayı (pencere DIP boyutu). */
+  /** The space of click coordinates (window size in DIPs). */
   dipW: number;
   dipH: number;
   loading: boolean;
@@ -72,7 +72,7 @@ function queueFrame(botId: string, s: Screen) {
   s.pending = setTimeout(() => sendFrame(botId, s), wait);
 }
 
-/** Arayüz bir botun ekranını izlemeye başladı/bıraktı. */
+/** The interface started/stopped watching a bot's screen. */
 export function watchScreen(botId: string, title: string, on: boolean) {
   if (!on) {
     watching.delete(botId);
@@ -93,7 +93,7 @@ export function screenFor(botId: string, title: string): Screen {
     height: HEIGHT,
     useContentSize: true,
     show: false,
-    title: t("{name} ekranı", { name: title }),
+    title: t("{name}'s screen", { name: title }),
     backgroundColor: "#ffffff",
     webPreferences: {
       offscreen: true,
@@ -113,7 +113,7 @@ export function screenFor(botId: string, title: string): Screen {
   win.webContents.on("did-navigate", () => queueFrame(botId, s));
   win.webContents.on("did-stop-loading", () => queueFrame(botId, s));
   win.webContents.setWindowOpenHandler(({ url }) => {
-    // Yeni sekme/pencere açmak yerine aynı ekranda aç: bot tek ekran görür.
+    // Open new tabs/windows in the same screen: the bot only sees one screen.
     if (/^https?:/i.test(url)) void win.loadURL(url);
     return { action: "deny" };
   });
@@ -152,13 +152,13 @@ export interface Shot {
   url: string;
 }
 
-/** Sayfanın tam görüntüsü (WIDTH x HEIGHT DIP). capturePage takılırsa son çizilen kare kullanılır. */
+/** A full picture of the page (WIDTH x HEIGHT DIPs). If capturePage hangs, the last painted frame is used. */
 async function capture(s: Screen): Promise<NativeImage> {
   const timeout = new Promise<null>((r) => setTimeout(() => r(null), 4000));
   const img = await Promise.race([s.win.webContents.capturePage(), timeout]);
   if (img && !img.isEmpty()) return img;
   if (s.frame && !s.frame.isEmpty()) return s.frame;
-  throw new Error(t("Ekran görüntüsü alınamadı, birkaç saniye sonra tekrar dene."));
+  throw new Error(t("Couldn't capture the screen; try again in a few seconds."));
 }
 
 export async function screenshot(s: Screen): Promise<Shot> {
@@ -247,11 +247,11 @@ function pressCombo(s: Screen, combo: string) {
     if (m && parts.length > 1) mods.push(m);
     else key = p;
   }
-  if (!key) throw new Error(`Tuş anlaşılamadı: ${combo}`);
+  if (!key) throw new Error(`Unknown key: ${combo}`);
   const wc = s.win.webContents;
   const keyCode = keyCodeOf(key);
   wc.sendInputEvent({ type: "keyDown", keyCode, modifiers: mods });
-  // Yazdırılabilir tuşlar ve Enter için "char" olayı da gerekir (aksi halde form gönderilmez, harf yazılmaz).
+  // Printable keys and Enter also need a "char" event (otherwise forms don't submit and letters aren't typed).
   if (keyCode === "Enter") wc.sendInputEvent({ type: "char", keyCode: "\r", modifiers: mods });
   else if (key.length === 1 && !mods.some((m) => m === "control" || m === "meta" || m === "alt")) {
     wc.sendInputEvent({ type: "char", keyCode: key, modifiers: mods });
@@ -263,7 +263,7 @@ function pressCombo(s: Screen, combo: string) {
 
 function toWin(s: Screen, coord: unknown): { x: number; y: number } {
   if (!Array.isArray(coord) || coord.length !== 2 || !coord.every((v) => typeof v === "number")) {
-    throw new Error("coordinate [x, y] biçiminde olmalı");
+    throw new Error("coordinate must be [x, y]");
   }
   return { x: Math.round(coord[0] / s.scale), y: Math.round(coord[1] / s.scale) };
 }
@@ -278,7 +278,7 @@ function click(s: Screen, button: "left" | "right" | "middle", count: number, mo
   }
 }
 
-/** Bir computer-use üye aracını çalıştırır. Dönüş: metin sonucu veya görüntü. */
+/** Runs a computer-use member tool. Returns a text result or an image. */
 export async function runAction(s: Screen, name: string, input: Record<string, unknown>): Promise<string | Shot> {
   const wc = s.win.webContents;
   const mods = parseMods(input.text);
@@ -287,7 +287,7 @@ export async function runAction(s: Screen, name: string, input: Record<string, u
       return screenshot(s);
     case "zoom": {
       const region = input.region;
-      if (!Array.isArray(region) || region.length !== 4) throw new Error("region [x0, y0, x1, y1] olmalı");
+      if (!Array.isArray(region) || region.length !== 4) throw new Error("region must be [x0, y0, x1, y1]");
       return zoom(s, region as number[]);
     }
     case "left_click":
@@ -377,41 +377,41 @@ export async function runAction(s: Screen, name: string, input: Record<string, u
       return "OK";
     }
     default:
-      throw new Error(`Bu işlem desteklenmiyor: ${name}`);
+      throw new Error(`This action isn't supported: ${name}`);
   }
 }
 
 export async function openUrl(s: Screen, url: string): Promise<string> {
   let u = url.trim();
   if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(u)) {
-    // Yerel adresler (localhost, 127.0.0.1, 192.168.x.x…) genelde https değildir.
+    // Local addresses (localhost, 127.0.0.1, 192.168.x.x…) usually aren't https.
     const local = /^(localhost|127\.|10\.|192\.168\.|\[::1\])/i.test(u);
     u = (local ? "http://" : "https://") + u;
   }
-  if (!/^https?:/i.test(u)) throw new Error(t("Sadece http ve https adresleri açılabilir."));
+  if (!/^https?:/i.test(u)) throw new Error(t("Only http and https addresses can be opened."));
   try {
     await s.win.webContents.loadURL(u);
   } catch (e) {
-    // Yönlendirmeler loadURL'i hata ile bitirebilir; sayfa yine de açılmış olabilir.
+    // Redirects can make loadURL fail even though the page opened.
     if (!s.win.webContents.getURL()) throw e;
   }
   await settle(s, 300);
-  return `Açıldı: ${s.win.webContents.getURL()}`;
+  return `Opened: ${s.win.webContents.getURL()}`;
 }
 
 export function goBack(s: Screen): string {
   const nav = s.win.webContents.navigationHistory;
-  if (!nav.canGoBack()) return "Geri gidilecek sayfa yok.";
+  if (!nav.canGoBack()) return "There is no page to go back to.";
   nav.goBack();
   return "Geri gidildi.";
 }
 
 export async function pageText(s: Screen): Promise<string> {
   const text = (await s.win.webContents.executeJavaScript("document.body ? document.body.innerText : ''", true)) as string;
-  return text.length > 20000 ? text.slice(0, 20000) + "\n…(kısaltıldı)" : text;
+  return text.length > 20000 ? text.slice(0, 20000) + "\n…(truncated)" : text;
 }
 
-// --- Kullanıcının panelden yaptığı girişler ("Kontrolü al") ---
+// --- The user's input from the panel ("Take control") ---
 
 export type UserInput =
   | { type: "click"; x: number; y: number; button: "left" | "right" | "middle"; count: number }
@@ -423,7 +423,7 @@ export type UserInput =
   | { type: "back" }
   | { type: "reload" };
 
-/** Tarayıcı (DOM) tuş adları → Electron tuş kodları. */
+/** Browser (DOM) key names → Electron key codes. */
 const DOM_KEYS: Record<string, string> = {
   Enter: "Enter",
   Tab: "Tab",
@@ -449,7 +449,7 @@ export async function userInput(botId: string, title: string, ev: UserInput): Pr
     case "click": {
       const x = Math.round(ev.x);
       const y = Math.round(ev.y);
-      // Tarayıcı çift tıklamayı art arda gelen tıklamaların sayısından (1, 2, 3) anlar.
+      // The browser detects double clicks from the click count (1, 2, 3).
       wc.sendInputEvent({ type: "mouseMove", x, y });
       wc.sendInputEvent({ type: "mouseDown", x, y, button: ev.button, clickCount: ev.count });
       wc.sendInputEvent({ type: "mouseUp", x, y, button: ev.button, clickCount: ev.count });
@@ -472,11 +472,11 @@ export async function userInput(botId: string, title: string, ev: UserInput): Pr
         wc.sendInputEvent({ type: "keyUp", keyCode: named, modifiers: mods });
       } else if (ev.key.length === 1) {
         if (ev.ctrl || ev.alt || ev.meta) {
-          // Kısayollar (Ctrl+A, Ctrl+C, Ctrl+V…)
+          // Shortcuts (Ctrl+A, Ctrl+C, Ctrl+V…)
           wc.sendInputEvent({ type: "keyDown", keyCode: ev.key.toUpperCase(), modifiers: mods });
           wc.sendInputEvent({ type: "keyUp", keyCode: ev.key.toUpperCase(), modifiers: mods });
         } else {
-          // Harfler: Türkçe karakterler dahil doğrudan yazılır.
+          // Letters, including non-ASCII ones, are inserted directly.
           await wc.insertText(ev.key);
         }
       }

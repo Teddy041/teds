@@ -3,8 +3,8 @@ import type { PublicState } from "../../shared/types";
 import { call } from "./api";
 import { locale, t } from "../../shared/i18n";
 
-// Sol alttaki profil kutusu: kim olduğu (sahip / çalışan modu), çıkış ve giriş.
-// "Çıkış yap" sahip oturumunu kapatır: ekip lideri, Ayarlar ve yönetim PIN girilene kadar kilitlenir.
+// The profile box at the bottom left: who is using the app (owner / staff mode), log out and log in.
+// "Log out" ends the owner session: the team lead, Settings and management lock until the PIN is entered.
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -17,23 +17,23 @@ function PinForLogout({ onDone, onCancel }: { onDone: () => void; onCancel: () =
   const [again, setAgain] = useState("");
   const [err, setErr] = useState("");
   const save = async () => {
-    if (pin !== again) return setErr(t("PIN'ler aynı değil."));
+    if (pin !== again) return setErr(t("The PINs don't match."));
     const r = await call<{ ok: boolean; error?: string }>("setOwnerPin", pin, "");
-    if (!r.ok) return setErr(r.error ?? t("Hata"));
+    if (!r.ok) return setErr(r.error ?? t("Error"));
     await call("lockOwner");
     onDone();
   };
   return (
     <div className="modal-back" onClick={onCancel}>
       <div className="modal small" onClick={(e) => e.stopPropagation()}>
-        <h2>{t("Çıkış için PIN belirle")}</h2>
-        <p className="muted">{t("Çıkış yapınca ekip lideri, Ayarlar ve yönetim kilitlenir. Tekrar giriş yapabilmen için bir Sahip PIN'i gerekiyor (4-8 hane).")}</p>
+        <h2>{t("Set a PIN to log out")}</h2>
+        <p className="muted">{t("Logging out locks the team lead, Settings and management. You need an owner PIN (4-8 digits) to log back in.")}</p>
         <label>
           PIN
           <input autoFocus type="password" inputMode="numeric" value={pin} onChange={(e) => (setPin(e.target.value.replace(/\D/g, "")), setErr(""))} />
         </label>
         <label>
-          {t("PIN (tekrar)")}
+          {t("PIN (again)")}
           <input
             type="password"
             inputMode="numeric"
@@ -45,10 +45,10 @@ function PinForLogout({ onDone, onCancel }: { onDone: () => void; onCancel: () =
         {err && <div className="error-text">{err}</div>}
         <div className="row end">
           <button className="ghost" onClick={onCancel}>
-            {t("Vazgeç")}
+            {t("Cancel")}
           </button>
           <button className="primary" disabled={pin.length < 4 || !again} onClick={() => void save()}>
-            {t("PIN'i kaydet ve çıkış yap")}
+            {t("Save PIN and log out")}
           </button>
         </div>
       </div>
@@ -61,7 +61,7 @@ export function ProfileBox({ s, onLogin, onLoggedOut, onSettings }: { s: PublicS
   const [askPin, setAskPin] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const owner = s.owner.unlocked;
-  const name = s.settings.userName || t("İşletme sahibi");
+  const name = s.settings.userName || t("Business owner");
 
   useEffect(() => {
     if (!open) return;
@@ -88,21 +88,21 @@ export function ProfileBox({ s, onLogin, onLoggedOut, onSettings }: { s: PublicS
         <div className="profile-menu">
           {owner ? (
             <>
-              <button onClick={() => (setOpen(false), onSettings())}>⚙️ {t("Profil ve ayarlar")}</button>
+              <button onClick={() => (setOpen(false), onSettings())}>⚙️ {t("Profile and settings")}</button>
               <button className="danger-text" onClick={() => void logout()}>
-                ⎋ {t("Çıkış yap")}
+                ⎋ {t("Log out")}
               </button>
             </>
           ) : (
-            <button onClick={() => (setOpen(false), onLogin())}>🔑 {t("Sahip girişi")}</button>
+            <button onClick={() => (setOpen(false), onLogin())}>🔑 {t("Owner login")}</button>
           )}
         </div>
       )}
       <button className={`profile-btn ${open ? "active" : ""}`} onClick={() => setOpen(!open)}>
         <span className={`avatar-circle ${owner ? "" : "guest"}`}>{owner ? initials(name) : "👥"}</span>
         <span className="bot-text">
-          <span className="bot-name">{owner ? name : t("Çalışan modu")}</span>
-          <span className="bot-role">{owner ? (s.owner.hasPin ? t("Sahip · oturum açık") : t("Sahip · PIN yok")) : t("Sahip çıkış yaptı")}</span>
+          <span className="bot-name">{owner ? name : t("Staff mode")}</span>
+          <span className="bot-role">{owner ? (s.owner.hasPin ? t("Owner · signed in") : t("Owner · no PIN")) : t("Owner logged out")}</span>
         </span>
         <span className="muted">⋯</span>
       </button>

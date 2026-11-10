@@ -13,9 +13,9 @@ import type { Effort } from "../shared/types";
 import { readApiKey } from "./store";
 import { t } from "../shared/i18n";
 
-// Claude ile konuşan ortak ajan döngüsü. Sohbet botları da ekran görevleri de bunu kullanır:
-// istek gönder → Claude araç isterse çalıştır → sonuçları geri gönder → Claude bitirene kadar tekrar et.
-// Geçmiş (history) sadece sona eklenir; düşünme blokları dahil yanıt içeriği olduğu gibi geri gönderilir.
+// The shared agent loop that talks to Claude. Both chat bots and screen tasks use it:
+// send a request → run the tools Claude asks for → send the results back → repeat until Claude is done.
+// The history is append-only; the reply content, thinking blocks included, is sent back exactly as received.
 
 export type ToolOutput = string | Array<BetaTextBlockParam | BetaImageBlockParam>;
 
@@ -23,7 +23,7 @@ export interface ToolCall {
   id: string;
   name: string;
   input: Record<string, unknown>;
-  /** computer-use araç setinin üyeleri için "computer". */
+  /** "computer" for members of the computer-use toolset. */
   toolset?: string;
 }
 
@@ -33,21 +33,21 @@ export interface LoopOptions {
   system: string;
   history: BetaMessageParam[];
   tools: BetaToolUnion[];
-  /** Bir aracı çalıştırır. Hata fırlatırsa sonuç is_error olarak döner. */
+  /** Runs a tool. If it throws, the result is sent back with is_error. */
   runTool: (call: ToolCall) => Promise<ToolOutput>;
-  /** Akış sırasında gelen metin parçaları. Her yeni yanıt turunda `turn` artar. */
+  /** Text chunks while streaming. `turn` increases with each new reply turn. */
   onText?: (delta: string, turn: number) => void;
-  /** Her yanıt turu bittiğinde. */
+  /** Called when each reply turn ends. */
   onTurnEnd?: (msg: BetaMessage, turn: number) => void;
   signal?: AbortSignal;
   maxTurns?: number;
-  /** Uzun döngülerde eski araç sonuçlarını (ekran görüntüleri) sunucu tarafında temizle. */
+  /** In long loops, clear old tool results (screenshots) on the server side. */
   clearOldToolResults?: boolean;
 }
 
 export class StoppedError extends Error {
   constructor() {
-    super("Durduruldu");
+    super("Stopped");
   }
 }
 
@@ -55,12 +55,12 @@ let cached: { key: string; client: Anthropic } | null = null;
 
 export function client(): Anthropic {
   const key = readApiKey();
-  if (!key) throw new Error(t("Claude API anahtarı girilmemiş. Ayarlar sayfasından ekleyin."));
+  if (!key) throw new Error(t("No Claude API key yet. Add one in Settings."));
   if (!cached || cached.key !== key) cached = { key, client: new Anthropic({ apiKey: key }) };
   return cached.client;
 }
 
-/** Ret durumunda sunucu tarafında yedek modele geçişi destekleyen modeller. */
+/** Models that support switching to a fallback model on the server side after a refusal. */
 const FALLBACK_MODELS = new Set(["claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"]);
 
 export function webSearchTool(model: string): BetaToolUnion {
@@ -70,8 +70,8 @@ export function webSearchTool(model: string): BetaToolUnion {
     : { type: "web_search_20250305", name: "web_search", max_uses: 5 }) as BetaToolUnion;
 }
 
-/** Son asistan mesajında cevapsız araç çağrısı kaldıysa (durdurma/hata) geçmişi geçerli hale getirir. */
-export function closeOpenToolCalls(history: BetaMessageParam[], note = "Durduruldu.") {
+/** If the last assistant message left tool calls unanswered (stop/error), makes the history valid again. */
+export function closeOpenToolCalls(history: BetaMessageParam[], note = "Stopped.") {
   const last = history[history.length - 1];
   if (!last || last.role !== "assistant" || !Array.isArray(last.content)) return;
   const uses = (last.content as BetaContentBlock[]).filter((b): b is BetaToolUseBlock => b.type === "tool_use");
@@ -138,13 +138,13 @@ export async function runLoop(o: LoopOptions): Promise<{ text: string; refused: 
     if (text.trim()) lastText = text;
 
     if (msg.stop_reason === "refusal") {
-      closeOpenToolCalls(o.history, "Yanıt reddedildi.");
-      return { text: lastText || t("Bu isteği yerine getiremiyorum."), refused: true };
+      closeOpenToolCalls(o.history, "Reply refused.");
+      return { text: lastText || t("I can't help with this request."), refused: true };
     }
-    if (msg.stop_reason === "pause_turn") continue; // sunucu aracı (web araması) sürüyor: aynı geçmişle devam et
+    if (msg.stop_reason === "pause_turn") continue; // a server tool (web search) is still running: continue with the same history
     if (msg.stop_reason !== "tool_use") return { text: lastText, refused: false };
 
-    // Araçları sırayla çalıştır; computer-use partisinde biri başarısız olursa kalanları çalıştırma.
+    // Run the tools in order; if one in a computer-use batch fails, don't run the rest.
     const uses = msg.content.filter((b): b is BetaToolUseBlock => b.type === "tool_use");
     const results: BetaToolResultBlockParam[] = [];
     let computerFailed = false;
@@ -152,7 +152,7 @@ export async function runLoop(o: LoopOptions): Promise<{ text: string; refused: 
       const toolset = u.toolset_name ?? undefined;
       const base = { type: "tool_result" as const, tool_use_id: u.id, ...(toolset ? { toolset_name: toolset } : {}) };
       if (o.signal?.aborted) {
-        results.push({ ...base, is_error: true, content: "Durduruldu." });
+        results.push({ ...base, is_error: true, content: "Stopped." });
         continue;
       }
       if (toolset === "computer" && computerFailed) {
@@ -165,24 +165,24 @@ export async function runLoop(o: LoopOptions): Promise<{ text: string; refused: 
         results.push({ ...base, content: out });
       } catch (e) {
         if (toolset === "computer") computerFailed = true;
-        const m = e instanceof StoppedError ? "Durduruldu." : `Hata: ${e instanceof Error ? e.message : String(e)}`;
+        const m = e instanceof StoppedError ? "Stopped." : `Error: ${e instanceof Error ? e.message : String(e)}`;
         results.push({ ...base, is_error: true, content: m });
       }
     }
     o.history.push({ role: "user", content: results });
     if (o.signal?.aborted) throw new StoppedError();
   }
-  return { text: lastText || t("İşlem çok uzun sürdü, durdum. Devam etmemi istersen söyle."), refused: false };
+  return { text: lastText || t("This took too long, so I stopped. Tell me if you want me to continue."), refused: false };
 }
 
-/** Kullanıcıya gösterilecek, anlaşılır hata metni. */
+/** A readable error message to show the user. */
 export function explainError(e: unknown): string {
-  if (e instanceof StoppedError) return t("Durduruldu.");
-  if (e instanceof Anthropic.AuthenticationError) return t("API anahtarı geçersiz. Ayarlar'dan kontrol edin.");
-  if (e instanceof Anthropic.PermissionDeniedError) return t("Bu API anahtarının bu modele erişimi yok.");
-  if (e instanceof Anthropic.RateLimitError) return t("Çok fazla istek gönderildi (hız sınırı). Biraz bekleyip tekrar deneyin.");
-  if (e instanceof Anthropic.BadRequestError) return `${t("İstek reddedildi:")} ${e.message}`;
-  if (e instanceof Anthropic.APIConnectionError) return t("Claude'a bağlanılamadı. İnternet bağlantınızı kontrol edin.");
-  if (e instanceof Anthropic.APIError) return `${t("Claude hatası")} (${e.status}): ${e.message}`;
+  if (e instanceof StoppedError) return t("Stopped.");
+  if (e instanceof Anthropic.AuthenticationError) return t("The API key is invalid. Check it in Settings.");
+  if (e instanceof Anthropic.PermissionDeniedError) return t("This API key has no access to this model.");
+  if (e instanceof Anthropic.RateLimitError) return t("Too many requests (rate limit). Wait a moment and try again.");
+  if (e instanceof Anthropic.BadRequestError) return `${t("Request rejected:")} ${e.message}`;
+  if (e instanceof Anthropic.APIConnectionError) return t("Couldn't reach Claude. Check your internet connection.");
+  if (e instanceof Anthropic.APIError) return `${t("Claude error")} (${e.status}): ${e.message}`;
   return e instanceof Error ? e.message : String(e);
 }

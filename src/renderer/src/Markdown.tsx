@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-// Botların yazdığı basit Markdown'ı güvenli şekilde gösterir (HTML yorumlanmaz).
-// Desteklenenler: başlık, kalın, italik, kod, kod bloğu, madde/numaralı liste, tablo, bağlantı.
+// Safely renders the simple Markdown bots write (HTML is never interpreted).
+// Supported: headings, bold, italic, code, code blocks, bulleted/numbered lists, tables, links.
 
 function inline(text: string, key = 0): ReactNode[] {
   const out: ReactNode[] = [];

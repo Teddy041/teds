@@ -82,7 +82,7 @@ button.small { padding: 4px 10px; font-size: 12px; }
 .loading { display: grid; place-items: center; height: 100%; color: var(--muted); }
 .error-text { color: var(--danger); margin-top: 6px; }
 
-/* Düzen */
+/* Layout */
 .app { display: flex; height: 100%; }
 .sidebar {
   width: 250px;
@@ -194,7 +194,7 @@ button.small { padding: 4px 10px; font-size: 12px; }
 .md-table { border-collapse: collapse; margin: 6px 0; font-size: 13px; }
 .md-table th, .md-table td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; }
 
-/* Onay kartı */
+/* Approval card */
 .approval {
   align-self: stretch;
   max-width: 620px;
@@ -251,7 +251,7 @@ td.actions { white-space: nowrap; text-align: right; }
 label.check { flex-direction: row; align-items: center; gap: 10px; margin: 4px 0; color: var(--text); }
 label.check input { width: auto; }
 
-/* İlk kurulum */
+/* First run */
 .onboarding { display: grid; place-items: center; min-height: 100%; padding: 30px; overflow-y: auto; }
 .card.wide { width: 760px; max-width: 100%; }
 .templates { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
@@ -273,7 +273,7 @@ label.check input { width: auto; }
 .profile-menu button:hover { background: var(--accent-soft); }
 .modal.small { width: 420px; }
 
-/* Bot ekranı paneli */
+/* Bot screen panel */
 .chat-layout { display: flex; height: 100%; min-height: 0; }
 .chat-layout > .chat { flex: 1; min-width: 360px; }
 .screen-panel { flex: 1.25; min-width: 420px; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--panel); }

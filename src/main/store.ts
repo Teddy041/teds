@@ -5,8 +5,8 @@ import crypto from "node:crypto";
 import type { AppState, Bot, Chat, PublicState, Template } from "../shared/types";
 import { setLang, t } from "../shared/i18n";
 
-// Uygulamanın durumu: bellekte tek bir nesne, değiştikçe arka planda diske (JSON) yazılır.
-// Konum: %APPDATA%\Teds\data.json. API anahtarı ayrı dosyada, Windows DPAPI ile şifreli (safeStorage).
+// App state: a single object in memory, written to disk (JSON) in the background whenever it changes.
+// Location: %APPDATA%\Teds\data.json. The API key lives in a separate file, encrypted with Windows DPAPI (safeStorage).
 
 const dataDir = () => app.getPath("userData");
 const dataFile = () => path.join(dataDir(), "data.json");
@@ -17,7 +17,7 @@ export const newId = () => crypto.randomUUID().slice(0, 12);
 function fresh(): AppState {
   return {
     settings: {
-      language: "tr",
+      language: "en",
       model: "claude-opus-5-5",
       userName: "",
       userAbout: "",
@@ -62,7 +62,7 @@ export function loadState() {
   if (fs.existsSync(dataFile())) {
     raw = readJson(dataFile());
     if (!raw) {
-      // Bozuk dosya: silme, kenara al ve son yedekten aç.
+      // Damaged file: don't delete it; move it aside and open the latest backup.
       try {
         fs.renameSync(dataFile(), path.join(dataDir(), `data.bozuk-${Date.now()}.json`));
       } catch {
@@ -74,12 +74,12 @@ export function loadState() {
   }
   state = raw ? { ...fresh(), ...raw, settings: { ...fresh().settings, ...raw.settings } } : fresh();
   setLang(state.settings.language);
-  // Eski sürümlerden kalan alanlar (Claude Code beyni kaldırıldı).
+  // Fields left over from older versions (the Claude Code brain was removed).
   const legacy = state.settings as unknown as Record<string, unknown>;
   delete legacy.brain;
   delete legacy.claudePath;
   for (const c of Object.values(state.chats)) delete (c as unknown as Record<string, unknown>).claudeSession;
-  // Uygulama kapanırken yarım kalan işler: tekrar başlatılamaz, durumlarını düzelt.
+  // Work left unfinished when the app closed can't be resumed: fix up its state.
   for (const c of Object.values(state.chats)) {
     c.busy = false;
     for (const m of c.display) m.streaming = false;
@@ -88,14 +88,14 @@ export function loadState() {
     if (task.state === "running" || task.state === "paused") {
       task.state = "stopped";
       task.endedAt = Date.now();
-      task.steps.push({ at: Date.now(), text: t("Uygulama kapandığı için durdu.") });
+      task.steps.push({ at: Date.now(), text: t("Stopped because the app closed.") });
     }
     task.userControl = false;
   }
   for (const a of state.approvals) {
     if (a.state === "pending") {
       a.state = "rejected";
-      a.note = t("Uygulama kapandığı için iptal edildi.");
+      a.note = t("Cancelled because the app closed.");
     }
   }
   state.settings.hasApiKey = !!readApiKey();
@@ -111,8 +111,8 @@ export function onChange(fn: (s: PublicState) => void) {
 }
 
 // --- Sahip modu ---
-// Ekip liderine ve yönetim işlemlerine sadece işletme sahibi ulaşır. Sahip PIN'i belirlenmişse bunlar
-// PIN girilene kadar kilitlidir; 30 dakika işlem yapılmazsa yeniden kilitlenir. PIN yoksa kilit yoktur.
+// Only the business owner can reach the team lead and the admin actions. If an owner PIN is set, they stay
+// locked until the PIN is entered, and lock again after 30 minutes of inactivity. Without a PIN there is no lock.
 
 const AUTO_LOCK_MS = 30 * 60 * 1000;
 let unlockedUntil = 0;
@@ -125,9 +125,9 @@ export function ownerUnlocked() {
   return !hasPin() || Date.now() < unlockedUntil;
 }
 
-/** Sahip işlemi: kilitliyse hata verir, açıksa süreyi uzatır. */
+/** Owner action: throws if locked, otherwise extends the unlock period. */
 export function requireOwner() {
-  if (!ownerUnlocked()) throw new Error(t("Bu işlem için Sahip PIN'i gerekli."));
+  if (!ownerUnlocked()) throw new Error(t("This action requires the owner PIN."));
   if (hasPin()) unlockedUntil = Date.now() + AUTO_LOCK_MS;
 }
 
@@ -174,7 +174,7 @@ export function publicState(): PublicState {
   const chats: PublicState["chats"] = {};
   for (const [id, c] of Object.entries(state.chats)) {
     const { history: _h, ...rest } = c;
-    // Kilitliyken liderin sohbeti gösterilmez.
+    // While locked, the lead's chat isn't sent to the interface.
     chats[id] = !unlocked && id === lead?.id ? { ...rest, display: [] } : rest;
   }
   const { ownerPinHash, ...settings } = state.settings;
@@ -188,7 +188,7 @@ export function publicState(): PublicState {
   };
 }
 
-/** Durum değişti: arayüze kısa gecikmeyle gönder, diske biraz sonra yaz. */
+/** State changed: send it to the interface shortly and write it to disk a little later. */
 export function changed() {
   if (!broadcastTimer) {
     broadcastTimer = setTimeout(() => {
@@ -214,7 +214,7 @@ export function saveNow() {
     try {
       fs.renameSync(tmp, dataFile());
     } catch {
-      // Windows'ta dosya anlık kilitliyse (antivirüs, yedekleme) doğrudan yaz.
+      // If the file is briefly locked on Windows (antivirus, backup), write it directly.
       fs.writeFileSync(dataFile(), JSON.stringify(state));
       fs.rmSync(tmp, { force: true });
     }
@@ -226,7 +226,7 @@ export function saveNow() {
 
 let lastBackup = 0;
 
-/** En fazla 10 dakikada bir, son 30 kopyayı tutan otomatik yedek (%APPDATA%\Teds\backups). */
+/** Automatic backup at most every 10 minutes, keeping the last 30 copies (%APPDATA%\Teds\backups). */
 function backup() {
   if (Date.now() - lastBackup < 10 * 60 * 1000 || !fs.existsSync(dataFile())) return;
   lastBackup = Date.now();
@@ -254,7 +254,7 @@ export function leadBot(): Bot | undefined {
   return state.bots.find((b) => b.lead) ?? state.bots[0];
 }
 
-/** Şablonu uygular. replace=true ise mevcut botlar ve tablolar silinir. */
+/** Applies a template. With replace=true the current bots and tables are deleted. */
 export function applyTemplate(t: Template, replace: boolean) {
   if (replace) {
     state.bots = [];
@@ -274,19 +274,19 @@ export function applyTemplate(t: Template, replace: boolean) {
   changed();
 }
 
-/** Mevcut ekibi ve tablo yapısını şablon olarak dışa aktarır (kayıtlar ve sohbetler hariç). */
+/** Exports the current team and table structure as a template (without records or chats). */
 export function exportTemplate(): Template {
   return {
     id: "custom",
     name: state.settings.orgName || "Benim ekibim",
-    kind: state.settings.orgKind || "Genel",
-    description: "Dışa aktarılan ekip ve tablolar",
+    kind: state.settings.orgKind || "General",
+    description: "Exported team and tables",
     bots: state.bots.map(({ id: _id, ...b }) => b),
     collections: state.collections.map(({ id: _id, ...c }) => c),
   };
 }
 
-// --- API anahtarı (şifreli) ---
+// --- API key (encrypted) ---
 
 export function readApiKey(): string | null {
   if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY;
@@ -303,7 +303,7 @@ export function writeApiKey(key: string | null) {
     try {
       fs.unlinkSync(keyFile());
     } catch {
-      /* zaten yok */
+      /* already gone */
     }
   } else {
     fs.mkdirSync(dataDir(), { recursive: true });

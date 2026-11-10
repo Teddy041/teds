@@ -5,9 +5,9 @@ import type { ToolCall } from "./claude";
 import { changed, chatFor, newId, state } from "./store";
 import { t } from "../shared/i18n";
 
-// Yönetici araçları: sadece ekip liderinde bulunur. Lider; bot ekler, düzenler, siler, botlara araç ve
-// onay yetkisi verir, kayıt tablolarını ve alanlarını oluşturur, değiştirir, siler.
-// Liderle sadece işletme sahibi konuşabildiği için (Sahip PIN'i) bu araçları da dolaylı olarak sadece sahip kullanır.
+// Admin tools: only the team lead has them. The lead adds, edits and deletes bots, grants them tools and
+// approval modes, and creates, changes and deletes record tables and fields.
+// Since only the business owner can talk to the lead (owner PIN), only the owner can use these tools, indirectly.
 
 const GROUPS = Object.keys(TOOL_GROUP_LABELS) as ToolGroup[];
 const EFFORTS: Effort[] = ["low", "medium", "high", "xhigh", "max"];
@@ -16,59 +16,59 @@ const FIELD_TYPES: FieldDef["type"][] = ["text", "longtext", "number", "date", "
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({ type: "object" as const, properties, required });
 
 const botProps = {
-  role: { type: "string", description: "Kısa görev tanımı" },
-  instructions: { type: "string", description: "Botun nasıl çalışacağına dair ayrıntılı talimatlar" },
-  emoji: { type: "string", description: "Tek bir emoji" },
+  role: { type: "string", description: "Short role description" },
+  instructions: { type: "string", description: "Detailed instructions for how the bot should work" },
+  emoji: { type: "string", description: "A single emoji" },
   tools: {
     type: "array",
     items: { type: "string", enum: GROUPS },
-    description: `Verilecek araç grupları: ${GROUPS.map((g) => `${g} (${TOOL_GROUP_LABELS[g].title})`).join(", ")}`,
+    description: `Tool groups to grant: ${GROUPS.map((g) => `${g} (${TOOL_GROUP_LABELS[g].title})`).join(", ")}`,
   },
-  approval: { type: "string", enum: ["ask", "auto"], description: "ask: yazan her işlemden önce sorar; auto: sadece silme/ödeme için sorar" },
-  effort: { type: "string", enum: EFFORTS, description: "Düşünme düzeyi" },
-  folder: { type: "string", description: "Botun kenar çubuğundaki klasörü, örn. 'Muhasebe'. Boş metin klasörden çıkarır." },
+  approval: { type: "string", enum: ["ask", "auto"], description: "ask: asks before anything that writes; auto: asks only for deletes/payments" },
+  effort: { type: "string", enum: EFFORTS, description: "Thinking level" },
+  folder: { type: "string", description: "The bot's folder in the sidebar, e.g. 'Accounting'. An empty string removes it from its folder." },
 };
 
 const fieldSchema = {
   type: "object",
   properties: {
-    label: { type: "string", description: "Alanın görünen adı" },
+    label: { type: "string", description: "The field's display name" },
     type: { type: "string", enum: FIELD_TYPES },
-    options: { type: "array", items: { type: "string" }, description: "Sadece select tipi için seçenekler" },
+    options: { type: "array", items: { type: "string" }, description: "Choices, only for the select type" },
   },
   required: ["label", "type"],
 };
 
 export function adminTools(): BetaToolUnion[] {
   return [
-    { name: "list_bots", description: "Ekipteki botları, görevlerini, araçlarını ve onay ayarlarını listeler.", input_schema: obj({}) },
-    { name: "create_bot", description: "Ekibe yeni bir bot ekler.", input_schema: obj({ name: { type: "string" }, ...botProps }, ["name", "role", "instructions"]) },
+    { name: "list_bots", description: "Lists the bots on the team with their roles, tools and approval settings.", input_schema: obj({}) },
+    { name: "create_bot", description: "Adds a new bot to the team.", input_schema: obj({ name: { type: "string" }, ...botProps }, ["name", "role", "instructions"]) },
     {
       name: "update_bot",
-      description: "Bir botun adını, görevini, talimatlarını, araçlarını (yetkilerini) veya onay ayarını veya klasörünü değiştirir. Sadece verilen alanlar değişir.",
-      input_schema: obj({ name: { type: "string", description: "Botun şu anki adı" }, new_name: { type: "string" }, ...botProps }, ["name"]),
+      description: "Changes a bot's name, role, instructions, tools (permissions), approval mode or folder. Only the given fields change.",
+      input_schema: obj({ name: { type: "string", description: "The bot's current name" }, new_name: { type: "string" }, ...botProps }, ["name"]),
     },
-    { name: "delete_bot", description: "Bir botu ve sohbet geçmişini siler. Ekip lideri silinemez.", input_schema: obj({ name: { type: "string" } }, ["name"]) },
+    { name: "delete_bot", description: "Deletes a bot and its chat history. The team lead can't be deleted.", input_schema: obj({ name: { type: "string" } }, ["name"]) },
     {
       name: "create_collection",
-      description: "Yeni bir kayıt tablosu oluşturur.",
-      input_schema: obj({ name: { type: "string" }, description: { type: "string", description: "Tablonun ne için kullanıldığı" }, fields: { type: "array", items: fieldSchema } }, ["name", "description", "fields"]),
+      description: "Creates a new record table.",
+      input_schema: obj({ name: { type: "string" }, description: { type: "string", description: "What the table is for" }, fields: { type: "array", items: fieldSchema } }, ["name", "description", "fields"]),
     },
     {
       name: "update_collection",
-      description: "Bir tablonun adını/açıklamasını değiştirir, alan ekler veya alan siler. Alan silmek o alandaki verileri de siler.",
+      description: "Renames a table or changes its description, adds fields or removes fields. Removing a field also deletes the data in it.",
       input_schema: obj(
         {
-          name: { type: "string", description: "Tablonun şu anki adı" },
+          name: { type: "string", description: "The table's current name" },
           new_name: { type: "string" },
           description: { type: "string" },
           add_fields: { type: "array", items: fieldSchema },
-          remove_fields: { type: "array", items: { type: "string" }, description: "Silinecek alanların anahtarı veya adı" },
+          remove_fields: { type: "array", items: { type: "string" }, description: "Keys or names of the fields to remove" },
         },
         ["name"],
       ),
     },
-    { name: "delete_collection", description: "Bir tabloyu ve içindeki TÜM kayıtları siler.", input_schema: obj({ name: { type: "string" } }, ["name"]) },
+    { name: "delete_collection", description: "Deletes a table and ALL the records in it.", input_schema: obj({ name: { type: "string" } }, ["name"]) },
   ];
 }
 
@@ -76,19 +76,26 @@ const lower = (s: unknown) => String(s ?? "").trim().toLocaleLowerCase("tr");
 
 function findBot(name: unknown): Bot {
   const b = state.bots.find((x) => lower(x.name) === lower(name));
-  if (!b) throw new Error(`"${String(name)}" adında bot yok. Botlar: ${state.bots.map((x) => x.name).join(", ")}`);
+  if (!b) throw new Error(`There is no bot named "${String(name)}". Bots: ${state.bots.map((x) => x.name).join(", ")}`);
   return b;
 }
 
 function findCol(name: unknown): Collection {
   const c = state.collections.find((x) => lower(x.name) === lower(name));
-  if (!c) throw new Error(`"${String(name)}" adında tablo yok. Tablolar: ${state.collections.map((x) => x.name).join(", ") || "yok"}`);
+  if (!c) throw new Error(`There is no table named "${String(name)}". Tables: ${state.collections.map((x) => x.name).join(", ") || "none"}`);
   return c;
 }
 
+/** Turns a field label into a key: lowercase ASCII with underscores (Turkish letters are mapped). */
 function slug(label: string) {
   const map: Record<string, string> = { ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" };
-  return label.toLocaleLowerCase("tr").replace(/[çğıöşü]/g, (c) => map[c]).replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "alan";
+  return (
+    label
+      .toLocaleLowerCase("tr")
+      .replace(/[çğıöşü]/g, (c) => map[c])
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_|_$/g, "") || "field"
+  );
 }
 
 function toFields(raw: unknown, existing: FieldDef[] = []): FieldDef[] {
@@ -97,7 +104,7 @@ function toFields(raw: unknown, existing: FieldDef[] = []): FieldDef[] {
   return raw.map((r) => {
     const f = r as { label?: unknown; type?: unknown; options?: unknown };
     const label = String(f.label ?? "").trim();
-    if (!label) throw new Error("Her alanın bir adı (label) olmalı");
+    if (!label) throw new Error("Every field needs a name (label)");
     const type = FIELD_TYPES.includes(f.type as FieldDef["type"]) ? (f.type as FieldDef["type"]) : "text";
     let key = slug(label);
     while (keys.has(key)) key += "_";
@@ -109,36 +116,39 @@ function toFields(raw: unknown, existing: FieldDef[] = []): FieldDef[] {
 
 function pickTools(raw: unknown): ToolGroup[] | undefined {
   if (raw === undefined) return undefined;
-  if (!Array.isArray(raw)) throw new Error("tools bir liste olmalı");
+  if (!Array.isArray(raw)) throw new Error("tools must be a list");
   const bad = raw.filter((x) => !GROUPS.includes(x as ToolGroup));
-  if (bad.length) throw new Error(`Bilinmeyen araç grubu: ${bad.join(", ")}`);
+  if (bad.length) throw new Error(`Unknown tool group: ${bad.join(", ")}`);
   return [...new Set(raw as ToolGroup[])];
 }
 
-/** Klasör adını temizler: boşlukları kırpar, 40 karakterle sınırlar. Boşsa "" döner (klasörsüz). */
+/** Cleans a folder name: collapses spaces and caps it at 40 characters. Returns "" for no folder. */
 function cleanFolder(raw: unknown): string {
-  return String(raw ?? "").replace(/\s+/g, " ").trim().slice(0, 40);
+  return String(raw ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 40);
 }
 
 function describeBot(b: Partial<Bot>) {
   return [
-    b.name && `${t("Ad")}: ${b.name}`,
-    b.role && `${t("Görev")}: ${b.role}`,
-    b.tools && `${t("Araçlar")}: ${b.tools.map((g) => t(TOOL_GROUP_LABELS[g].title)).join(", ") || t("yok")}`,
-    b.approval && `${t("Onay")}: ${b.approval === "ask" ? t("yazmadan önce sorar") : t("sormadan yapar (silme/ödeme hariç)")}`,
-    b.effort && `${t("Düşünme")}: ${b.effort}`,
-    b.folder !== undefined && `${t("Klasör")}: ${b.folder || t("(klasörsüz)")}`,
-    b.instructions && `${t("Talimatlar")}: ${b.instructions.slice(0, 400)}`,
+    b.name && `${t("Name")}: ${b.name}`,
+    b.role && `${t("Role")}: ${b.role}`,
+    b.tools && `${t("Tools")}: ${b.tools.map((g) => t(TOOL_GROUP_LABELS[g].title)).join(", ") || t("none")}`,
+    b.approval && `${t("Approval")}: ${b.approval === "ask" ? t("asks before writing") : t("acts without asking (except deletes/payments)")}`,
+    b.effort && `${t("Thinking")}: ${b.effort}`,
+    b.folder !== undefined && `${t("Folder")}: ${b.folder || t("(no folder)")}`,
+    b.instructions && `${t("Instructions")}: ${b.instructions.slice(0, 400)}`,
   ]
     .filter(Boolean)
     .join("\n");
 }
 
-/** Liderin onay ayarına göre sorar; always=true ise her durumda sorar. Reddedilirse açıklama döner. */
+/** Asks according to the lead's approval mode; with always=true it always asks. Returns an explanation if rejected. */
 async function approve(lead: Bot, always: boolean, title: string, detail: string): Promise<string | null> {
   if (!always && lead.approval === "auto") return null;
   const a = await requestApproval({ botId: lead.id, title, detail });
-  return a.ok ? null : `Sahip bu işlemi REDDETTİ${a.note ? `. Notu: ${a.note}` : ""}. Yapma.`;
+  return a.ok ? null : `The owner REJECTED this action${a.note ? `. Their note: ${a.note}` : ""}. Don't do it.`;
 }
 
 function note(lead: Bot, text: string) {
@@ -146,24 +156,27 @@ function note(lead: Bot, text: string) {
   changed();
 }
 
-/** Yönetici aracını çalıştırır. Bu bir yönetici aracı değilse null döner. */
+/** Runs an admin tool. Returns null if this isn't an admin tool. */
 export async function runAdminTool(lead: Bot, call: ToolCall): Promise<string | null> {
   const i = call.input;
   switch (call.name) {
     case "list_bots":
       return state.bots
-        .map((b) => `${b.emoji} ${b.name}${b.lead ? " (lider)" : ""} — ${b.role}${b.folder ? ` [klasör: ${b.folder}]` : ""}\n  araçlar: ${b.tools.join(", ") || "yok"}; onay: ${b.approval}; düşünme: ${b.effort}\n  talimatlar: ${b.instructions.slice(0, 300)}`)
+        .map(
+          (b) =>
+            `${b.emoji} ${b.name}${b.lead ? " (lead)" : ""} — ${b.role}${b.folder ? ` [folder: ${b.folder}]` : ""}\n  tools: ${b.tools.join(", ") || "none"}; approval: ${b.approval}; thinking: ${b.effort}\n  instructions: ${b.instructions.slice(0, 300)}`,
+        )
         .join("\n");
 
     case "create_bot": {
       const name = String(i.name ?? "").trim();
-      if (!name) throw new Error("name eksik");
-      if (state.bots.some((b) => lower(b.name) === lower(name))) throw new Error("Bu adda bir bot zaten var");
+      if (!name) throw new Error("name is missing");
+      if (state.bots.some((b) => lower(b.name) === lower(name))) throw new Error("A bot with this name already exists");
       const bot: Bot = {
         id: newId(),
         name,
         emoji: String(i.emoji ?? "🤖").slice(0, 4) || "🤖",
-        role: String(i.role ?? "Ekip üyesi"),
+        role: String(i.role ?? "Team member"),
         instructions: String(i.instructions ?? ""),
         lead: false,
         tools: pickTools(i.tools) ?? ["records", "memory"],
@@ -171,11 +184,11 @@ export async function runAdminTool(lead: Bot, call: ToolCall): Promise<string | 
         effort: EFFORTS.includes(i.effort as Effort) ? (i.effort as Effort) : "medium",
         ...(cleanFolder(i.folder) ? { folder: cleanFolder(i.folder) } : {}),
       };
-      const no = await approve(lead, false, `${t("Yeni bot oluştur:")} ${bot.emoji} ${bot.name}`, describeBot(bot));
+      const no = await approve(lead, false, `${t("Create new bot:")} ${bot.emoji} ${bot.name}`, describeBot(bot));
       if (no) return no;
       state.bots.push(bot);
-      note(lead, `🧩 ${t("Yeni bot eklendi:")} ${bot.emoji} ${bot.name}`);
-      return `Oluşturuldu: ${bot.name}`;
+      note(lead, `🧩 ${t("New bot added:")} ${bot.emoji} ${bot.name}`);
+      return `Created: ${bot.name}`;
     }
 
     case "update_bot": {
@@ -183,8 +196,8 @@ export async function runAdminTool(lead: Bot, call: ToolCall): Promise<string | 
       const patch: Partial<Bot> = {};
       if (i.new_name !== undefined) {
         const nn = String(i.new_name).trim();
-        if (!nn) throw new Error("new_name boş olamaz");
-        if (state.bots.some((x) => x.id !== b.id && lower(x.name) === lower(nn))) throw new Error("Bu adda bir bot zaten var");
+        if (!nn) throw new Error("new_name can't be empty");
+        if (state.bots.some((x) => x.id !== b.id && lower(x.name) === lower(nn))) throw new Error("A bot with this name already exists");
         patch.name = nn;
       }
       if (i.role !== undefined) patch.role = String(i.role);
@@ -195,39 +208,39 @@ export async function runAdminTool(lead: Bot, call: ToolCall): Promise<string | 
       if (i.approval !== undefined) patch.approval = i.approval === "auto" ? "auto" : "ask";
       if (i.effort !== undefined && EFFORTS.includes(i.effort as Effort)) patch.effort = i.effort as Effort;
       if (i.folder !== undefined) patch.folder = cleanFolder(i.folder);
-      if (!Object.keys(patch).length) return "Değişecek bir şey verilmedi.";
-      // Yetki genişletmek (araç vermek, sormadan yapma) her zaman sahibin onayına tabidir.
+      if (!Object.keys(patch).length) return "Nothing to change was given.";
+      // Widening permissions (granting tools, acting without asking) always needs the owner's approval.
       const widens = (tools && tools.some((g) => !b.tools.includes(g))) || (patch.approval === "auto" && b.approval !== "auto");
-      const no = await approve(lead, !!widens, t("{bot} botunu güncelle", { bot: `${b.emoji} ${b.name}` }), describeBot(patch));
+      const no = await approve(lead, !!widens, t("Update {bot}", { bot: `${b.emoji} ${b.name}` }), describeBot(patch));
       if (no) return no;
       Object.assign(b, patch);
-      note(lead, `🧩 ${t("{bot} güncellendi", { bot: `${b.emoji} ${b.name}` })}`);
-      return `Güncellendi: ${b.name}`;
+      note(lead, `🧩 ${t("{bot} updated", { bot: `${b.emoji} ${b.name}` })}`);
+      return `Updated: ${b.name}`;
     }
 
     case "delete_bot": {
       const b = findBot(i.name);
-      if (b.lead) throw new Error("Ekip lideri silinemez");
-      const no = await approve(lead, true, t("{bot} botunu SİL", { bot: `${b.emoji} ${b.name}` }), `${b.role}\n${t("Sohbet geçmişi de silinir.")}`);
+      if (b.lead) throw new Error("The team lead can't be deleted");
+      const no = await approve(lead, true, t("DELETE {bot}", { bot: `${b.emoji} ${b.name}` }), `${b.role}\n${t("Its chat history is deleted too.")}`);
       if (no) return no;
       state.bots = state.bots.filter((x) => x.id !== b.id);
       delete state.chats[b.id];
-      note(lead, `🧩 ${t("{bot} silindi", { bot: b.name })}`);
-      return `Silindi: ${b.name}`;
+      note(lead, `🧩 ${t("{bot} deleted", { bot: b.name })}`);
+      return `Deleted: ${b.name}`;
     }
 
     case "create_collection": {
       const name = String(i.name ?? "").trim();
-      if (!name) throw new Error("name eksik");
-      if (state.collections.some((c) => lower(c.name) === lower(name))) throw new Error("Bu adda bir tablo zaten var");
+      if (!name) throw new Error("name is missing");
+      if (state.collections.some((c) => lower(c.name) === lower(name))) throw new Error("A table with this name already exists");
       const fields = toFields(i.fields);
-      if (!fields.length) throw new Error("En az bir alan gerekli");
+      if (!fields.length) throw new Error("At least one field is required");
       const c: Collection = { id: newId(), name, description: String(i.description ?? ""), fields };
-      const no = await approve(lead, false, `${t("Yeni tablo oluştur:")} ${name}`, `${c.description}\n${t("Alanlar")}: ${fields.map((f) => `${f.label} (${f.type})`).join(", ")}`);
+      const no = await approve(lead, false, `${t("Create new table:")} ${name}`, `${c.description}\n${t("Fields")}: ${fields.map((f) => `${f.label} (${f.type})`).join(", ")}`);
       if (no) return no;
       state.collections.push(c);
-      note(lead, `🗂️ ${t("Yeni tablo:")} ${name}`);
-      return `Oluşturuldu: ${name}. Alan anahtarları: ${fields.map((f) => f.key).join(", ")}`;
+      note(lead, `🗂️ ${t("New table:")} ${name}`);
+      return `Created: ${name}. Field keys: ${fields.map((f) => f.key).join(", ")}`;
     }
 
     case "update_collection": {
@@ -236,38 +249,38 @@ export async function runAdminTool(lead: Bot, call: ToolCall): Promise<string | 
       const removeKeys = Array.isArray(i.remove_fields)
         ? i.remove_fields.map((r) => {
             const f = c.fields.find((x) => x.key === String(r) || lower(x.label) === lower(r));
-            if (!f) throw new Error(`"${String(r)}" alanı ${c.name} tablosunda yok`);
+            if (!f) throw new Error(`The ${c.name} table has no field "${String(r)}"`);
             return f.key;
           })
         : [];
       const newName = i.new_name !== undefined ? String(i.new_name).trim() : undefined;
-      if (newName && state.collections.some((x) => x.id !== c.id && lower(x.name) === lower(newName))) throw new Error("Bu adda bir tablo zaten var");
+      if (newName && state.collections.some((x) => x.id !== c.id && lower(x.name) === lower(newName))) throw new Error("A table with this name already exists");
       const lines = [
-        newName && `Yeni ad: ${newName}`,
-        i.description !== undefined && `Açıklama: ${String(i.description)}`,
-        add.length && `Eklenecek alanlar: ${add.map((f) => `${f.label} (${f.type})`).join(", ")}`,
-        removeKeys.length && `SİLİNECEK alanlar (içindeki veriyle): ${removeKeys.join(", ")}`,
+        newName && `${t("New name:")} ${newName}`,
+        i.description !== undefined && `${t("Description:")} ${String(i.description)}`,
+        add.length && `${t("Fields to add:")} ${add.map((f) => `${f.label} (${f.type})`).join(", ")}`,
+        removeKeys.length && `${t("Fields to DELETE (with their data):")} ${removeKeys.join(", ")}`,
       ].filter(Boolean);
-      if (!lines.length) return "Değişecek bir şey verilmedi.";
-      const no = await approve(lead, removeKeys.length > 0, t("{table} tablosunu değiştir", { table: c.name }), lines.join("\n"));
+      if (!lines.length) return "Nothing to change was given.";
+      const no = await approve(lead, removeKeys.length > 0, t("Change the {table} table", { table: c.name }), lines.join("\n"));
       if (no) return no;
       if (newName) c.name = newName;
       if (i.description !== undefined) c.description = String(i.description);
       c.fields = [...c.fields.filter((f) => !removeKeys.includes(f.key)), ...add];
       if (removeKeys.length) for (const r of state.records) if (r.collectionId === c.id) for (const k of removeKeys) delete r.data[k];
-      note(lead, `🗂️ ${t("{table} tablosu güncellendi", { table: c.name })}`);
-      return `Güncellendi. Alanlar: ${c.fields.map((f) => `${f.key}:${f.type}`).join(", ")}`;
+      note(lead, `🗂️ ${t("{table} table updated", { table: c.name })}`);
+      return `Updated. Fields: ${c.fields.map((f) => `${f.key}:${f.type}`).join(", ")}`;
     }
 
     case "delete_collection": {
       const c = findCol(i.name);
       const n = state.records.filter((r) => r.collectionId === c.id).length;
-      const no = await approve(lead, true, t("{table} tablosunu SİL", { table: c.name }), t("İçindeki {n} kayıt da silinir. Geri alınamaz.", { n }));
+      const no = await approve(lead, true, t("DELETE the {table} table", { table: c.name }), t("Its {n} records are deleted too. This can't be undone.", { n }));
       if (no) return no;
       state.collections = state.collections.filter((x) => x.id !== c.id);
       state.records = state.records.filter((r) => r.collectionId !== c.id);
-      note(lead, `🗂️ ${t("{table} tablosu silindi", { table: c.name })}`);
-      return `Silindi: ${c.name} (${n} kayıtla birlikte)`;
+      note(lead, `🗂️ ${t("{table} table deleted", { table: c.name })}`);
+      return `Deleted: ${c.name} (with ${n} records)`;
     }
 
     default:

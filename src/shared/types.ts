@@ -1,38 +1,38 @@
-// Ana süreç (main) ile arayüz (renderer) arasında paylaşılan veri tipleri.
-// Uygulamanın bütün durumu tek bir AppState nesnesinde tutulur ve diske JSON olarak yazılır.
+// Data types shared by the main process and the interface (renderer).
+// The whole app state lives in a single AppState object and is written to disk as JSON.
 
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 
-/** Botun onay davranışı: "ask" = yazan/gönderen her işlem için sorar, "auto" = sadece silme ve ödeme için sorar. */
+/** A bot's approval behaviour: "ask" = asks before anything that writes or sends, "auto" = asks only for deletes and payments. */
 export type ApprovalMode = "ask" | "auto";
 
-/** Botların kullanabileceği araç grupları. Her bot için ayrı ayrı açılıp kapatılabilir. */
+/** Tool groups bots can use. Each can be switched on or off per bot. */
 export type ToolGroup = "records" | "memory" | "team" | "screen" | "web";
 
 export const TOOL_GROUP_LABELS: Record<ToolGroup, { title: string; detail: string }> = {
-  records: { title: "Kayıtlar", detail: "Kayıt tablolarını okur, ekler, günceller, siler" },
-  memory: { title: "Hafıza", detail: "Önemli bilgileri hatırlar ve unutur" },
-  team: { title: "Ekip", detail: "İşi ekipteki başka bir bota devreder" },
-  screen: { title: "Ekran", detail: "Kendi tarayıcısında web sitelerini kullanır" },
-  web: { title: "Web araması", detail: "İnternette arama yapar" },
+  records: { title: "Records", detail: "Reads, adds, updates and deletes records" },
+  memory: { title: "Memory", detail: "Remembers and forgets important facts" },
+  team: { title: "Team", detail: "Hands work to another bot on the team" },
+  screen: { title: "Screen", detail: "Uses websites in its own browser" },
+  web: { title: "Web search", detail: "Searches the internet" },
 };
 
 export interface Bot {
   id: string;
   name: string;
   emoji: string;
-  /** Kısa görev tanımı, örn. "Randevu sorumlusu". */
+  /** Short role description, e.g. "Appointment manager". */
   role: string;
-  /** Botun nasıl çalışacağına dair serbest metin talimatlar (sistem istemine girer). */
+  /** Free-text instructions for how the bot works (they go into the system prompt). */
   instructions: string;
-  /** Ekibi yöneten ana bot. Tam olarak bir tane olur. */
+  /** The main bot that leads the team. There is exactly one. */
   lead: boolean;
   tools: ToolGroup[];
   approval: ApprovalMode;
   effort: Effort;
-  /** Boşsa ayarlardaki varsayılan model kullanılır. */
+  /** If empty, the default model from Settings is used. */
   model?: string;
-  /** Kenar çubuğunda botun durduğu klasör, örn. "Muhasebe". Boşsa klasörsüz. */
+  /** The sidebar folder the bot sits in, e.g. "Accounting". Empty means no folder. */
   folder?: string;
 }
 
@@ -43,11 +43,11 @@ export interface FieldDef {
   options?: string[];
 }
 
-/** Kullanıcının tanımladığı bir kayıt tablosu: Hastalar, Müşteriler, Faturalar, Stok... */
+/** A record table defined by the user: Patients, Customers, Invoices, Stock... */
 export interface Collection {
   id: string;
   name: string;
-  /** Botlara bu tablonun ne işe yaradığını anlatır. */
+  /** Tells the bots what this table is for. */
   description: string;
   fields: FieldDef[];
 }
@@ -63,31 +63,31 @@ export interface RecordRow {
 export interface MemoryFact {
   id: string;
   text: string;
-  /** Hangi bot kaydetti; kullanıcı eklediyse "you". */
+  /** Which bot saved it; "you" if the user added it. */
   by: string;
   at: number;
 }
 
 export type DisplayKind = "user" | "bot" | "tool" | "error" | "note";
 
-/** Sohbet ekranında gösterilen mesaj. API geçmişinden ayrı tutulur. */
+/** A message shown in the chat. Kept separately from the API history. */
 export interface DisplayMessage {
   id: string;
   kind: DisplayKind;
   text: string;
   at: number;
-  /** Mesajı yazan bot (kind = "bot" veya "tool" ise). */
+  /** The bot that wrote the message (when kind is "bot" or "tool"). */
   botId?: string;
-  /** Bu mesaja bağlı onay isteği. */
+  /** The approval request attached to this message. */
   approvalId?: string;
-  /** Akış devam ediyor mu (yazılıyor). */
+  /** Whether the reply is still streaming. */
   streaming?: boolean;
 }
 
 export interface Chat {
   botId: string;
   display: DisplayMessage[];
-  /** Claude API'ye gönderilen geçmiş (MessageParam[]); sadece sona eklenir, düzenlenmez. */
+  /** History sent to the Claude API (MessageParam[]); append-only, never edited. */
   history: unknown[];
   busy: boolean;
 }
@@ -97,11 +97,11 @@ export type ApprovalState = "pending" | "approved" | "rejected";
 export interface Approval {
   id: string;
   botId: string;
-  /** İnsan için açıklama: "Ayşe Yılmaz'ı Hastalar tablosuna ekle". */
+  /** Human-readable description: "Add Sarah Mitchell to the Patients table". */
   title: string;
   detail: string;
   state: ApprovalState;
-  /** Reddederken kullanıcının bota notu. */
+  /** The user's note to the bot when rejecting. */
   note?: string;
   taskId?: string;
   at: number;
@@ -114,7 +114,7 @@ export interface TaskStep {
   text: string;
 }
 
-/** Botun kendi tarayıcısında yaptığı uzun bir iş (ekran görevi). */
+/** A longer job a bot does in its own browser (a screen task). */
 export interface ScreenTask {
   id: string;
   botId: string;
@@ -124,22 +124,22 @@ export interface ScreenTask {
   result?: string;
   startedAt: number;
   endedAt?: number;
-  /** Kullanıcı kontrolü aldı: bot bekliyor. */
+  /** The user took control: the bot is waiting. */
   userControl: boolean;
 }
 
 export interface Settings {
-  /** Arayüz ve bot cevaplarının dili. */
-  language: "tr" | "en";
+  /** Language of the interface and of the bots' replies. */
+  language: "en" | "tr";
   model: string;
   userName: string;
   userAbout: string;
-  /** Çalışma alanının adı ve türü, örn. "Şifa Kliniği" / "Sağlık". */
+  /** Name and kind of the business, e.g. "Riverside Clinic" / "Healthcare". */
   orgName: string;
   orgKind: string;
   hasApiKey: boolean;
   onboarded: boolean;
-  /** Sahip PIN'inin özeti (scrypt). Arayüze gönderilmez. */
+  /** Hash of the owner PIN (scrypt). Never sent to the interface. */
   ownerPinHash?: string;
 }
 
@@ -154,7 +154,7 @@ export interface AppState {
   tasks: ScreenTask[];
 }
 
-/** Bir alan şablonu: hazır bot ekibi ve kayıt tabloları. Dışa/içe aktarılabilir JSON. */
+/** An industry template: a ready-made bot team and record tables. Exportable/importable JSON. */
 export interface Template {
   id: string;
   name: string;
@@ -164,16 +164,16 @@ export interface Template {
   collections: Omit<Collection, "id">[];
 }
 
-/** Arayüze gönderilen durum: API geçmişi (büyük) hariç. */
+/** The state sent to the interface: without the (large) API history. */
 export type PublicState = Omit<AppState, "chats"> & {
   chats: Record<string, Omit<Chat, "history">>;
-  /** Sahip modu: PIN var mı, şu an açık mı. PIN yoksa her zaman açıktır. */
+  /** Owner mode: is there a PIN, and is it unlocked now. Without a PIN it is always unlocked. */
   owner: { hasPin: boolean; unlocked: boolean };
 };
 
 export const MODELS: { id: string; label: string }[] = [
-  { id: "claude-opus-5-5", label: "Claude Opus 5.5 (önerilen)" },
-  { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5 (daha hızlı, ucuz)" },
-  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 (en ucuz)" },
-  { id: "claude-fable-5-1", label: "Claude Fable 5.1 (en güçlü, pahalı)" },
+  { id: "claude-opus-5-5", label: "Claude Opus 5.5 (recommended)" },
+  { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5 (faster, cheaper)" },
+  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 (cheapest)" },
+  { id: "claude-fable-5-1", label: "Claude Fable 5.1 (most capable, expensive)" },
 ];
