@@ -2,6 +2,8 @@
 
 # ◆ Teds
 
+**English** | [Deutsch](README.de.md) | [Türkçe](README.tr.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
+
 ### An editable AI bot team for any kind of management work
 
 **Give a team of AI bots your records, your rules and a browser, and let them do the busywork while you approve what matters.**
